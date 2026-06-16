@@ -83,18 +83,17 @@
     overflow-y: auto;
   }
 
-  /* Fixed-width columns (the tile-size value), not minmax(..., 1fr): with 1fr
-     every column stretches to fill the row, so dragging the slider only changes
-     size when the column *count* flips — discrete jumps. A fixed track makes
-     each tile exactly --tile-min wide, so the slider resizes them continuously;
-     auto-fill still packs as many as fit and reflows, leaving a trailing gutter
-     on the right (expected for a thumbnail-size grid). */
+  /* minmax(--tile-min, 1fr) so full rows fill edge-to-edge (only the last,
+     partial row leaves space on the right). The trade-off: 1fr equalises every
+     column to width/N, so the slider resizes tiles in discrete steps as the
+     column count flips, not continuously — at a fixed window width you can have
+     a perfect fill OR continuous resize, not both, and we chose fill. */
   .grid {
     list-style: none;
     margin: 0;
     padding: 1rem;
     display: grid;
-    grid-template-columns: repeat(auto-fill, var(--tile-min, 200px));
+    grid-template-columns: repeat(auto-fill, minmax(var(--tile-min, 200px), 1fr));
     gap: 1rem;
   }
 
