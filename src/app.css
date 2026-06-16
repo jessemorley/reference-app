@@ -1,0 +1,58 @@
+:root {
+  color-scheme: dark;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui,
+    sans-serif;
+  font-size: 14px;
+  --fg: rgba(255, 255, 255, 0.92);
+  --fg-dim: rgba(255, 255, 255, 0.55);
+  --accent: #4c8dff;
+  --panel: rgba(28, 28, 32, 0.55);
+  --border: rgba(255, 255, 255, 0.1);
+}
+
+/* Transparent down to the window so the macOS vibrancy material shows through
+   the chrome. Content panels paint their own translucent dark backgrounds. */
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  background: transparent;
+  color: var(--fg);
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Drag strip standing in for the hidden-inset titlebar. */
+.titlebar {
+  height: 36px;
+  flex: 0 0 auto;
+}
+
+button {
+  font: inherit;
+  color: var(--fg);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.55rem 1.1rem;
+  cursor: default;
+  transition: background 0.12s ease;
+}
+
+button:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: white;
+}
+
+button.primary:hover {
+  background: #5d99ff;
+}
