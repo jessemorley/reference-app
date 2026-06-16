@@ -6,8 +6,10 @@ export type Photographer = {
   name: string;
   /** Path relative to the Photography Root — the pin key (ADR-0002). */
   relPath: string;
-  /** asset-protocol URL of the cover thumbnail. */
-  coverThumb: string | null;
+  /** Absolute path of the cover Reference image. The tile turns this into a
+   *  cached thumbnail on demand via `ensureThumb` (Slice 3); `null` only if the
+   *  folder has no readable image (those are skipped before reaching here). */
+  coverPath: string | null;
 };
 
 /** "Uncategorised" is synthetic. */

@@ -16,8 +16,8 @@ export function getRoot(): Promise<string | null> {
 }
 
 /** A row from the Rust `list_photographers` command, where `cover` is the
- *  cover image's absolute path. Turning that into an asset-protocol URL is a
- *  frontend concern, so `listPhotographers` adapts it to `Photographer`. */
+ *  cover image's absolute path. The TS `Photographer` calls it `coverPath`; the
+ *  tile thumbnails it on demand via `ensureThumb`. */
 type PhotographerRow = {
   name: string;
   relPath: string;
@@ -25,12 +25,20 @@ type PhotographerRow = {
 };
 
 /** Photographers directly under `root` that hold at least one image (empty
- *  folders are hidden). Cover is full-res for now — Slice 3 swaps in thumbs. */
+ *  folders are hidden). Each carries the cover's absolute path; the grid
+ *  requests cached thumbnails per tile so covers fill in progressively. */
 export async function listPhotographers(root: string): Promise<Photographer[]> {
   const rows = await invoke<PhotographerRow[]>("list_photographers", { root });
   return rows.map((r) => ({
     name: r.name,
     relPath: r.relPath,
-    coverThumb: r.cover ? convertFileSrc(r.cover) : null,
+    coverPath: r.cover,
   }));
+}
+
+/** Ensure a cached thumbnail exists for the image at `path` (generating it on
+ *  first request), returning its asset-protocol URL ready for an `<img>` src. */
+export async function ensureThumb(path: string): Promise<string> {
+  const thumbPath = await invoke<string>("ensure_thumb", { imgPath: path });
+  return convertFileSrc(thumbPath);
 }
