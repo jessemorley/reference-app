@@ -23,6 +23,10 @@ tauri-plugin-dialog = "2"
 tauri-plugin-store = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+# Decode + downscale Reference images into cached thumbnails (Slice 3, ADR-0001).
+# Default features cover the formats we thumbnail (jpeg/png/gif/webp/tiff/bmp);
+# HEIC/AVIF aren't decoded by `image`, so those covers fall back to a placeholder.
+image = "0.25"
 
 [dev-dependencies]
 # Temp directory trees for exercising scan.rs's folder-walking rules.

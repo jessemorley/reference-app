@@ -3,13 +3,18 @@ import { render, screen } from "@testing-library/svelte";
 import PhotographerGrid from "./PhotographerGrid.svelte";
 import type { Photographer } from "../types";
 
-// The grid scans via listPhotographers on mount; mock the IPC layer so the
-// component's state branching (scanning → loaded/empty/error) is under test.
-vi.mock("../ipc", () => ({ listPhotographers: vi.fn() }));
-import { listPhotographers } from "../ipc";
+// The grid scans via listPhotographers on mount, and each tile's Thumb resolves
+// its cover via ensureThumb. Mock the whole IPC layer so the component's state
+// branching (scanning → loaded/empty/error) and cover wiring are under test.
+vi.mock("../ipc", () => ({
+  listPhotographers: vi.fn(),
+  ensureThumb: vi.fn(),
+}));
+import { listPhotographers, ensureThumb } from "../ipc";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(ensureThumb).mockResolvedValue("asset://thumb");
 });
 
 describe("PhotographerGrid", () => {
@@ -21,10 +26,10 @@ describe("PhotographerGrid", () => {
     expect(screen.getByText("Scanning…")).toBeInTheDocument();
   });
 
-  it("renders a tile per photographer once loaded", async () => {
+  it("renders a tile per photographer and thumbnails each cover", async () => {
     const photographers: Photographer[] = [
-      { name: "Abe", relPath: "Abe", coverThumb: "asset://abe" },
-      { name: "Zed", relPath: "Zed", coverThumb: null },
+      { name: "Abe", relPath: "Abe", coverPath: "/root/Abe/a.jpg" },
+      { name: "Zed", relPath: "Zed", coverPath: null },
     ];
     vi.mocked(listPhotographers).mockResolvedValue(photographers);
 
@@ -32,9 +37,13 @@ describe("PhotographerGrid", () => {
 
     expect(await screen.findByText("Abe")).toBeInTheDocument();
     expect(screen.getByText("Zed")).toBeInTheDocument();
-    // The cover image carries the asset URL.
-    const cover = screen.getByRole("presentation") as HTMLImageElement;
-    expect(cover.src).toContain("asset://abe");
+    // Abe's cover is thumbnailed by path; Zed has no cover so isn't requested.
+    expect(ensureThumb).toHaveBeenCalledTimes(1);
+    expect(ensureThumb).toHaveBeenCalledWith("/root/Abe/a.jpg");
+
+    // Covers are decorative (alt=""), so the resolved img has role presentation.
+    const cover = (await screen.findByRole("presentation")) as HTMLImageElement;
+    expect(cover.src).toContain("asset://thumb");
   });
 
   it("shows an empty message when no photographers have images", async () => {

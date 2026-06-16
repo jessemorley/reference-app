@@ -62,7 +62,8 @@ Shared shapes (Rust struct ⇄ TS type in `types.ts`):
 type Photographer = {
   name: string;
   relPath: string;        // relative to Root — the pin key (ADR-0002)
-  coverThumb: string | null;  // asset-protocol URL of the cover thumbnail
+  coverPath: string | null;   // absolute path of the cover image; the tile
+                              // thumbnails it on demand via ensureThumb (Slice 3)
 };
 
 type Category = { name: string; count: number };  // "Uncategorised" is synthetic

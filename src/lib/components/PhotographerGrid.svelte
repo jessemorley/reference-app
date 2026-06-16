@@ -1,6 +1,7 @@
 <script lang="ts">
   import { listPhotographers } from "../ipc";
   import type { Photographer } from "../types";
+  import Thumb from "./Thumb.svelte";
 
   let { root }: { root: string } = $props();
 
@@ -40,11 +41,9 @@
     <ul class="grid">
       {#each photographers as p (p.relPath)}
         <li class="tile">
-          {#if p.coverThumb}
-            <img src={p.coverThumb} alt="" loading="lazy" />
-          {:else}
-            <div class="nocover"></div>
-          {/if}
+          <div class="cover">
+            <Thumb path={p.coverPath} />
+          </div>
           <span class="name">{p.name}</span>
         </li>
       {/each}
@@ -86,16 +85,13 @@
     cursor: pointer;
   }
 
-  /* 4:5 portrait. The ratio lives on the cover itself (not the grid-item tile)
-     so the height derives from the column width in normal flow — a grid item's
+  /* 4:5 portrait. The ratio lives on this cover box (not the grid-item tile) so
+     its height derives from the column width in normal flow — a grid item's
      aspect-ratio height isn't transferred into auto row tracks, which collapses
-     the rows and makes covers overflow. */
-  .tile img,
-  .nocover {
-    display: block;
+     the rows and makes covers overflow. The Thumb inside fills this box. */
+  .cover {
     width: 100%;
     aspect-ratio: 4 / 5;
-    object-fit: cover;
   }
 
   .name {

@@ -3,6 +3,7 @@ use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_store::StoreExt;
 
 mod scan;
+mod thumbs;
 
 /// Key under which the Photography Root path is persisted, and the store file
 /// that holds it (and, in later slices, cover pins — see ADR-0002).
@@ -63,12 +64,19 @@ pub fn run() {
             if let Some(root) = read_root(app.handle()) {
                 allow_root_assets(app.handle(), &root);
             }
+            // Grant the thumbnail cache dir too, so the webview can load the
+            // generated thumbnails (created by Slice 3's ensure_thumb).
+            if let Ok(dir) = thumbs::thumb_cache_dir(app.handle()) {
+                let _ = std::fs::create_dir_all(&dir);
+                let _ = app.asset_protocol_scope().allow_directory(&dir, true);
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             select_root,
             get_root,
-            scan::list_photographers
+            scan::list_photographers,
+            thumbs::ensure_thumb
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
