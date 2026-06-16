@@ -142,6 +142,138 @@ pub async fn list_photographers(root: String) -> Vec<Photographer> {
         .unwrap_or_default()
 }
 
+/// A Category tab in the photographer view. Mirrors the TS `Category`. The
+/// synthetic "All"/"Uncategorised" tabs are built on the frontend; this list
+/// only carries the *real* Categories (subfolders that hold ≥1 image).
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Category {
+    pub name: String,
+    pub count: usize,
+}
+
+/// One Reference image in the photographer view. Mirrors the TS `RefImage`.
+/// `path` is absolute (for the asset-protocol full-res load and on-demand
+/// thumbnailing via `ensure_thumb`); `category` is the owning Category's name,
+/// or `None` for a loose image directly in the Photographer folder.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RefImage {
+    pub name: String,
+    pub path: String,
+    pub category: Option<String>,
+}
+
+/// The payload for one Photographer: the flattened image list plus the Category
+/// tabs. Mirrors the `{ categories, images }` shape in the IPC contract.
+#[derive(Debug, Default, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PhotographerImages {
+    pub categories: Vec<Category>,
+    pub images: Vec<RefImage>,
+}
+
+/// File name for sorting/display, lossily decoded. Empty when the path has no
+/// final component (shouldn't happen for real entries).
+fn file_name(path: &Path) -> String {
+    path.file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default()
+}
+
+/// Collect the visible (non-hidden) image files directly inside `dir`, one
+/// level only — Categories do not nest (CONTEXT.md), so a Category's images are
+/// its immediate image children. Directory symlinks are irrelevant here since
+/// we never descend; hidden entries (incl. AppleDouble sidecars) are skipped.
+fn immediate_images(dir: &Path) -> Vec<PathBuf> {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    entries
+        .flatten()
+        .filter(|e| !e.file_name().to_string_lossy().starts_with('.'))
+        .map(|e| e.path())
+        .filter(|p| p.is_file() && is_image(p))
+        .collect()
+}
+
+/// Walk a Photographer folder one level deep and flatten it into the view
+/// payload. Loose images (directly in `dir`) get `category: None`; images inside
+/// an immediate subfolder get that subfolder's name as their Category. Empty
+/// subfolders — and subfolders with no images — are not Categories.
+///
+/// Images are sorted by (Category, name), case-insensitive, with loose images
+/// first; the frontend's "All" tab shows them in this order and per-Category
+/// tabs just filter it. Categories are sorted by name, case-insensitive.
+pub fn scan_images(dir: &Path) -> PhotographerImages {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return PhotographerImages::default();
+    };
+
+    let mut images: Vec<RefImage> = Vec::new();
+    let mut categories: Vec<Category> = Vec::new();
+
+    for entry in entries.flatten() {
+        if entry.file_name().to_string_lossy().starts_with('.') {
+            continue; // hidden entry / AppleDouble sidecar
+        }
+        let Ok(file_type) = entry.file_type() else {
+            continue;
+        };
+        let path = entry.path();
+        if file_type.is_dir() {
+            // is_dir() (via file_type) is false for a symlink-to-dir, matching
+            // scan_photographers: only real subfolders are Categories.
+            let name = file_name(&path);
+            let mut cat_images = immediate_images(&path);
+            if cat_images.is_empty() {
+                continue; // not a Category — no images to surface
+            }
+            categories.push(Category {
+                name: name.clone(),
+                count: cat_images.len(),
+            });
+            cat_images.sort_by_key(|p| file_name(p).to_lowercase());
+            for p in cat_images {
+                images.push(RefImage {
+                    name: file_name(&p),
+                    path: p.to_string_lossy().into_owned(),
+                    category: Some(name.clone()),
+                });
+            }
+        } else if is_image(&path) {
+            images.push(RefImage {
+                name: file_name(&path),
+                path: path.to_string_lossy().into_owned(),
+                category: None,
+            });
+        }
+    }
+
+    categories.sort_by_key(|c| c.name.to_lowercase());
+    // Loose first (None sorts before Some), then by Category, then by name —
+    // a stable, predictable order for the flattened "All" grid.
+    images.sort_by_key(|i| {
+        (
+            i.category.as_ref().map(|c| c.to_lowercase()),
+            i.name.to_lowercase(),
+        )
+    });
+
+    PhotographerImages { categories, images }
+}
+
+/// List one Photographer's images for the photographer view. `rel_path` is the
+/// Photographer's path relative to `root` (the pin key — ADR-0002); they're
+/// joined here so the frontend never handles absolute paths. Blocking walk, so
+/// it runs on the blocking pool (same rationale as `list_photographers`).
+#[tauri::command]
+pub async fn list_images(root: String, rel_path: String) -> PhotographerImages {
+    tauri::async_runtime::spawn_blocking(move || scan_images(&Path::new(&root).join(&rel_path)))
+        .await
+        .unwrap_or_default()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -250,6 +382,105 @@ mod tests {
         touch(&root.path().join("Ansel/a.jpg"));
 
         assert_eq!(names(root.path()), vec!["Ansel"]);
+    }
+
+    // --- scan_images (Slice 4) ---
+
+    fn image_names(dir: &Path) -> Vec<String> {
+        scan_images(dir).images.into_iter().map(|i| i.name).collect()
+    }
+
+    #[test]
+    fn loose_images_have_no_category_and_sort_by_name() {
+        let dir = tempdir().unwrap();
+        touch(&dir.path().join("b.jpg"));
+        touch(&dir.path().join("A.png"));
+
+        let out = scan_images(dir.path());
+        assert!(out.categories.is_empty());
+        assert_eq!(image_names(dir.path()), vec!["A.png", "b.jpg"]);
+        assert!(out.images.iter().all(|i| i.category.is_none()));
+    }
+
+    #[test]
+    fn subfolder_images_take_the_subfolder_as_their_category() {
+        let dir = tempdir().unwrap();
+        touch(&dir.path().join("portraits/p1.jpg"));
+        touch(&dir.path().join("portraits/p2.jpg"));
+
+        let out = scan_images(dir.path());
+        assert_eq!(out.categories.len(), 1);
+        assert_eq!(out.categories[0].name, "portraits");
+        assert_eq!(out.categories[0].count, 2);
+        assert!(out
+            .images
+            .iter()
+            .all(|i| i.category.as_deref() == Some("portraits")));
+    }
+
+    #[test]
+    fn categories_are_sorted_and_counted_imageless_subfolders_dropped() {
+        let dir = tempdir().unwrap();
+        touch(&dir.path().join("street/s1.jpg"));
+        touch(&dir.path().join("Abstract/a1.jpg"));
+        touch(&dir.path().join("Abstract/a2.jpg"));
+        std::fs::create_dir_all(dir.path().join("empty")).unwrap(); // no images
+        touch(&dir.path().join("notes/readme.txt")); // no images
+
+        let out = scan_images(dir.path());
+        let cats: Vec<(&str, usize)> = out
+            .categories
+            .iter()
+            .map(|c| (c.name.as_str(), c.count))
+            .collect();
+        assert_eq!(cats, vec![("Abstract", 2), ("street", 1)]);
+    }
+
+    #[test]
+    fn loose_images_sort_before_categorised_ones() {
+        let dir = tempdir().unwrap();
+        touch(&dir.path().join("loose.jpg"));
+        touch(&dir.path().join("zzz/z.jpg"));
+
+        // Loose (None) sorts before Some(category), regardless of name.
+        assert_eq!(image_names(dir.path()), vec!["loose.jpg", "z.jpg"]);
+        let first = &scan_images(dir.path()).images[0];
+        assert!(first.category.is_none());
+    }
+
+    #[test]
+    fn categories_do_not_nest_deeper_images_are_ignored() {
+        let dir = tempdir().unwrap();
+        touch(&dir.path().join("portraits/p1.jpg"));
+        // A folder nested two levels deep is not walked (categories are flat).
+        touch(&dir.path().join("portraits/2023/deep.jpg"));
+
+        let out = scan_images(dir.path());
+        assert_eq!(out.categories[0].count, 1);
+        assert_eq!(image_names(dir.path()), vec!["p1.jpg"]);
+    }
+
+    #[test]
+    fn hidden_entries_are_skipped_in_images_and_categories() {
+        let dir = tempdir().unwrap();
+        touch(&dir.path().join("._sidecar.jpg")); // loose AppleDouble
+        touch(&dir.path().join("real.jpg"));
+        touch(&dir.path().join("portraits/._hidden.jpg")); // sidecar in category
+        touch(&dir.path().join("portraits/p1.jpg"));
+        touch(&dir.path().join(".hidden_cat/x.jpg")); // hidden subfolder
+
+        let out = scan_images(dir.path());
+        assert_eq!(image_names(dir.path()), vec!["real.jpg", "p1.jpg"]);
+        assert_eq!(out.categories.len(), 1);
+        assert_eq!(out.categories[0].name, "portraits");
+        assert_eq!(out.categories[0].count, 1);
+    }
+
+    #[test]
+    fn missing_photographer_dir_yields_empty_payload() {
+        let out = scan_images(Path::new("/no/such/photographer"));
+        assert!(out.categories.is_empty());
+        assert!(out.images.is_empty());
     }
 
     #[cfg(unix)]

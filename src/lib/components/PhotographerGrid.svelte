@@ -3,7 +3,11 @@
   import type { Photographer } from "../types";
   import Thumb from "./Thumb.svelte";
 
-  let { root }: { root: string } = $props();
+  let {
+    root,
+    onselect,
+  }: { root: string; onselect: (photographer: Photographer) => void } =
+    $props();
 
   let photographers = $state<Photographer[] | null>(null);
   let error = $state<string | null>(null);
@@ -40,11 +44,20 @@
   {:else}
     <ul class="grid">
       {#each photographers as p (p.relPath)}
-        <li class="tile">
-          <div class="cover">
-            <Thumb path={p.coverPath} />
-          </div>
-          <span class="name">{p.name}</span>
+        <li>
+          <button
+            class="tile"
+            type="button"
+            title={p.name}
+            onclick={() => onselect(p)}
+          >
+            <div class="cover">
+              <!-- Decorative: the name is shown in the overlay below and is the
+                   button's accessible label, so the cover stays alt="". -->
+              <Thumb path={p.coverPath} />
+            </div>
+            <span class="name">{p.name}</span>
+          </button>
         </li>
       {/each}
     </ul>
@@ -78,11 +91,30 @@
     gap: 1rem;
   }
 
+  /* The tile is a button so selecting a photographer is keyboard-reachable and
+     announced as actionable; reset the global button chrome back to a bare,
+     full-width block so the cover + name overlay layout is unchanged. */
   .tile {
+    display: block;
     position: relative;
+    width: 100%;
+    padding: 0;
+    border: none;
+    border-radius: 0;
     overflow: hidden;
     background: rgba(255, 255, 255, 0.04);
     cursor: pointer;
+    text-align: left;
+    transition: none;
+  }
+
+  .tile:hover {
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .tile:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
 
   /* 4:5 portrait. The ratio lives on this cover box (not the grid-item tile) so

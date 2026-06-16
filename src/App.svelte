@@ -2,8 +2,10 @@
   import { onMount } from "svelte";
   import { getRoot, selectRoot } from "./lib/ipc";
   import { root } from "./lib/stores/root";
+  import { selected } from "./lib/stores/navigation";
   import RootPicker from "./lib/components/RootPicker.svelte";
   import PhotographerGrid from "./lib/components/PhotographerGrid.svelte";
+  import PhotographerView from "./lib/components/PhotographerView.svelte";
 
   // null = checked, no root yet; undefined = still checking.
   let ready = $state(false);
@@ -15,7 +17,10 @@
 
   async function change() {
     const chosen = await selectRoot();
-    if (chosen) root.set(chosen);
+    if (chosen) {
+      selected.set(null); // close any open photographer view before re-scanning
+      root.set(chosen);
+    }
   }
 </script>
 
@@ -29,10 +34,21 @@
 {:else}
   <div class="shell">
     <header class="bar">
-      <span class="path" title={$root}>{$root}</span>
-      <button onclick={change}>Change folder…</button>
+      {#if $selected}
+        <button class="back" onclick={() => selected.set(null)}
+          >‹ Photographers</button
+        >
+        <span class="path" title={$selected.name}>{$selected.name}</span>
+      {:else}
+        <span class="path" title={$root}>{$root}</span>
+        <button onclick={change}>Change folder…</button>
+      {/if}
     </header>
-    <PhotographerGrid root={$root!} />
+    {#if $selected}
+      <PhotographerView root={$root!} photographer={$selected} />
+    {:else}
+      <PhotographerGrid root={$root!} onselect={(p) => selected.set(p)} />
+    {/if}
   </div>
 {/if}
 
@@ -82,5 +98,12 @@
 
   .bar button {
     flex: none;
+  }
+
+  /* Back affordance reads as a quiet link, not a chunky button. */
+  .back {
+    background: transparent;
+    border-color: transparent;
+    padding: 0.55rem 0.6rem;
   }
 </style>

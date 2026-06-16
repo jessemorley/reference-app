@@ -21,7 +21,7 @@ describe("PhotographerGrid", () => {
   it("shows the scanning state while the scan is in flight", () => {
     vi.mocked(listPhotographers).mockReturnValue(new Promise(() => {}));
 
-    render(PhotographerGrid, { root: "/root" });
+    render(PhotographerGrid, { root: "/root", onselect: vi.fn() });
 
     expect(screen.getByText("Scanning…")).toBeInTheDocument();
   });
@@ -33,7 +33,7 @@ describe("PhotographerGrid", () => {
     ];
     vi.mocked(listPhotographers).mockResolvedValue(photographers);
 
-    render(PhotographerGrid, { root: "/root" });
+    render(PhotographerGrid, { root: "/root", onselect: vi.fn() });
 
     expect(await screen.findByText("Abe")).toBeInTheDocument();
     expect(screen.getByText("Zed")).toBeInTheDocument();
@@ -41,15 +41,33 @@ describe("PhotographerGrid", () => {
     expect(ensureThumb).toHaveBeenCalledTimes(1);
     expect(ensureThumb).toHaveBeenCalledWith("/root/Abe/a.jpg");
 
-    // Covers are decorative (alt=""), so the resolved img has role presentation.
+    // Covers are decorative (alt=""), so the resolved img has role presentation;
+    // the visible name overlay is the tile button's accessible label.
     const cover = (await screen.findByRole("presentation")) as HTMLImageElement;
     expect(cover.src).toContain("asset://thumb");
+  });
+
+  it("calls onselect with the photographer when its tile is clicked", async () => {
+    const photographers: Photographer[] = [
+      { name: "Abe", relPath: "Abe", coverPath: "/root/Abe/a.jpg" },
+    ];
+    vi.mocked(listPhotographers).mockResolvedValue(photographers);
+    const onselect = vi.fn();
+
+    render(PhotographerGrid, { root: "/root", onselect });
+
+    // The tile is a button labelled by its title (the photographer name).
+    const tile = await screen.findByRole("button", { name: "Abe" });
+    tile.click();
+
+    expect(onselect).toHaveBeenCalledTimes(1);
+    expect(onselect).toHaveBeenCalledWith(photographers[0]);
   });
 
   it("shows an empty message when no photographers have images", async () => {
     vi.mocked(listPhotographers).mockResolvedValue([]);
 
-    render(PhotographerGrid, { root: "/root" });
+    render(PhotographerGrid, { root: "/root", onselect: vi.fn() });
 
     expect(
       await screen.findByText("No photographers with images in this folder.")
@@ -59,7 +77,7 @@ describe("PhotographerGrid", () => {
   it("surfaces a read error", async () => {
     vi.mocked(listPhotographers).mockRejectedValue(new Error("denied"));
 
-    render(PhotographerGrid, { root: "/root" });
+    render(PhotographerGrid, { root: "/root", onselect: vi.fn() });
 
     expect(
       await screen.findByText(/Couldn't read this folder: denied/)

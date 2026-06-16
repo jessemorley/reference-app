@@ -2,7 +2,7 @@
 // Add a wrapper here as each backend command lands in its slice.
 
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
-import type { Photographer } from "./types";
+import type { Category, Photographer, RefImage } from "./types";
 
 /** Open the folder picker; persists and returns the chosen Photography Root,
  *  or null if the user cancels. */
@@ -34,6 +34,16 @@ export async function listPhotographers(root: string): Promise<Photographer[]> {
     relPath: r.relPath,
     coverPath: r.cover,
   }));
+}
+
+/** One Photographer's Reference images, flattened, plus the real Category tabs.
+ *  The shape matches the Rust `PhotographerImages` (already camelCase), so it's
+ *  returned as-is. `rel_path` is joined onto the Root in Rust. */
+export function listImages(
+  root: string,
+  relPath: string
+): Promise<{ categories: Category[]; images: RefImage[] }> {
+  return invoke("list_images", { root, relPath });
 }
 
 /** Ensure a cached thumbnail exists for the image at `path` (generating it on

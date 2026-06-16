@@ -70,8 +70,9 @@ type Category = { name: string; count: number };  // "Uncategorised" is syntheti
 
 type RefImage = {
   name: string;
-  path: string;           // absolute, for full-res asset-protocol load
-  thumb: string;          // asset-protocol URL of cached thumbnail
+  path: string;           // absolute; full-res asset-protocol load AND the
+                          // grid derives the cached thumb from it via
+                          // ensureThumb / Thumb.svelte (no separate thumb field)
   category: string | null; // null = loose
 };
 
@@ -85,7 +86,8 @@ Tauri commands:
 select_root() -> string | null                 // dialog, persists to store
 get_root() -> string | null
 list_photographers(root) -> Photographer[]      // hides empty folders
-list_images(photographerRelPath) -> { categories: Category[], images: RefImage[] }
+list_images(root, photographerRelPath) -> { categories: Category[], images: RefImage[] }
+                                                // root + relPath joined in Rust
 ensure_thumb(imgPath) -> string                 // returns cached thumb URL, generates if missing
 compute_histogram(imgPath) -> Histogram
 extract_palette(imgPath, k) -> Swatch[]         // k in 3..8, default 5, sorted by weight desc

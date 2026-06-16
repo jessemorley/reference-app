@@ -76,6 +76,7 @@ pub fn run() {
             select_root,
             get_root,
             scan::list_photographers,
+            scan::list_images,
             thumbs::ensure_thumb
         ])
         .run(tauri::generate_context!())
