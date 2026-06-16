@@ -8,8 +8,13 @@ const ROOT_KEY: &str = "root";
 
 /// Open a native folder picker; on selection, persist the chosen Photography
 /// Root and return its absolute path. Returns `None` if the user cancels.
+///
+/// Must be `async`: synchronous Tauri commands run on the main thread, and
+/// `blocking_pick_folder` would then block the very thread the native dialog
+/// needs — the picker opens but can't take input. Making it async runs it off
+/// the main thread, so the blocking wait happens on a worker thread instead.
 #[tauri::command]
-fn select_root(app: tauri::AppHandle) -> Option<String> {
+async fn select_root(app: tauri::AppHandle) -> Option<String> {
     let picked = app.dialog().file().blocking_pick_folder()?;
     let path = picked.into_path().ok()?.to_string_lossy().to_string();
 
