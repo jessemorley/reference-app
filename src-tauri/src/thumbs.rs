@@ -90,13 +90,17 @@ fn generate_thumb(src: &Path, out: &Path) -> Result<(), String> {
         std::process::id(),
         TMP_COUNTER.fetch_add(1, Ordering::Relaxed)
     ));
-    thumb
+    // Encode then rename into place; on any failure remove the scratch file so a
+    // partial `.tmp` never lingers in the cache (it's never read, never cleaned
+    // otherwise).
+    let write = thumb
         .save_with_format(&tmp, image::ImageFormat::Jpeg)
-        .map_err(|e| format!("encode {}: {e}", out.display()))?;
-    std::fs::rename(&tmp, out).map_err(|e| {
-        let _ = std::fs::remove_file(&tmp); // don't leak the scratch file on failure
-        e.to_string()
-    })
+        .map_err(|e| format!("encode {}: {e}", out.display()))
+        .and_then(|()| std::fs::rename(&tmp, out).map_err(|e| e.to_string()));
+    if write.is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
+    write
 }
 
 /// Directory holding the on-disk thumbnail cache, under the app's cache dir.
@@ -221,5 +225,10 @@ mod tests {
         let cache = dir.path().join("cache");
 
         assert!(ensure_thumb_in(&src, &cache).is_err());
+        // A failed generation must not leave a scratch .tmp behind in the cache.
+        let leftovers: Vec<_> = std::fs::read_dir(&cache)
+            .map(|rd| rd.flatten().map(|e| e.path()).collect())
+            .unwrap_or_default();
+        assert!(leftovers.is_empty(), "stray cache files: {leftovers:?}");
     }
 }
