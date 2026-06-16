@@ -189,7 +189,7 @@
   }
 
   .cell {
-    aspect-ratio: 1 / 1;
+    aspect-ratio: 4 / 5;
     overflow: hidden;
     background: rgba(255, 255, 255, 0.04);
   }
