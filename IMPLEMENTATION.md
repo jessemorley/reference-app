@@ -39,6 +39,7 @@ reference-app/
 │   │       ├── PaletteBar.svelte
 │   │       └── Histogram.svelte
 │   ├── App.svelte
+│   ├── App.test.ts             # Vitest component test
 │   └── main.ts
 ├── src-tauri/
 │   └── src/
@@ -91,6 +92,22 @@ set_cover(photographerRelPath, imgPath)         // store
 get_cover(photographerRelPath) -> string | null
 reveal_in_finder(path)
 ```
+
+---
+
+## Testing
+
+- **Frontend**: Vitest + `@testing-library/svelte` (jsdom). Config lives in
+  `vitest.config.ts`, which layers a test-only `svelteTesting()` plugin over the
+  Tauri-focused `vite.config.ts`; matchers are registered in `vitest-setup.ts`.
+  Run with `npm test` (or `npm run test:watch`).
+  - `src/App.test.ts` covers `App.svelte`'s three-way branching
+    (loading → first-run `RootPicker` → loaded shell) plus the change-folder
+    path, mocking `src/lib/ipc.ts`.
+- **Backend**: `cargo test` in `src-tauri/`. Thin command glue
+  (`select_root` / `get_root`) is left untested; the pure folder-walking rules
+  in `scan.rs` (Slice 2+) are the first real targets.
+- General rule: test pure logic, not native-dialog/store glue.
 
 ---
 
