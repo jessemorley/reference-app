@@ -45,6 +45,27 @@ fn read_root(app: &tauri::AppHandle) -> Option<String> {
         .and_then(|v| v.as_str().map(str::to_string))
 }
 
+/// Read a persisted preference by key, or `None` if unset. Generic key/value
+/// glue over the same `settings.json` store: view preferences (tile sizes now,
+/// Backdrop / Inspector state in later slices) persist through here rather than
+/// the JS store plugin, so `settings.json` keeps a single writer (this Rust
+/// side, alongside the Root and — later — cover pins). The frontend wraps these
+/// in typed accessors (`ipc.ts`) so callers never touch raw keys.
+#[tauri::command]
+fn get_setting(app: tauri::AppHandle, key: String) -> Option<serde_json::Value> {
+    app.store(STORE_FILE).ok()?.get(&key)
+}
+
+/// Persist a preference value under `key`. See `get_setting` for why this lives
+/// in Rust rather than the JS store plugin.
+#[tauri::command]
+fn set_setting(app: tauri::AppHandle, key: String, value: serde_json::Value) {
+    if let Ok(store) = app.store(STORE_FILE) {
+        store.set(&key, value);
+        let _ = store.save();
+    }
+}
+
 /// Widen the asset-protocol scope to serve full-res Reference images from
 /// anywhere under `root`. The static scope in tauri.conf.json starts empty;
 /// the Root is user-chosen at runtime, so we grant it here (on selection, and
@@ -75,6 +96,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             select_root,
             get_root,
+            get_setting,
+            set_setting,
             scan::list_photographers,
             scan::list_images,
             thumbs::ensure_thumb

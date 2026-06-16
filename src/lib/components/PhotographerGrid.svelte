@@ -1,6 +1,7 @@
 <script lang="ts">
   import { listPhotographers } from "../ipc";
   import type { Photographer } from "../types";
+  import { settings } from "../stores/settings";
   import Thumb from "./Thumb.svelte";
 
   let {
@@ -42,7 +43,7 @@
   {:else if photographers.length === 0}
     <p class="state">No photographers with images in this folder.</p>
   {:else}
-    <ul class="grid">
+    <ul class="grid" style="--tile-min: {$settings.root}px">
       {#each photographers as p (p.relPath)}
         <li>
           <button
@@ -87,7 +88,7 @@
     margin: 0;
     padding: 1rem;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(var(--tile-min, 200px), 1fr));
     gap: 1rem;
   }
 

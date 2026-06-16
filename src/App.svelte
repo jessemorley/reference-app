@@ -1,17 +1,26 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { getRoot, selectRoot } from "./lib/ipc";
+  import { getRoot, getTileSizes, selectRoot } from "./lib/ipc";
   import { root } from "./lib/stores/root";
   import { selected } from "./lib/stores/navigation";
+  import { settings } from "./lib/stores/settings";
   import RootPicker from "./lib/components/RootPicker.svelte";
   import PhotographerGrid from "./lib/components/PhotographerGrid.svelte";
   import PhotographerView from "./lib/components/PhotographerView.svelte";
+  import TileSizeSlider from "./lib/components/TileSizeSlider.svelte";
 
   // null = checked, no root yet; undefined = still checking.
   let ready = $state(false);
 
   onMount(async () => {
-    root.set(await getRoot());
+    // Hydrate persisted state before first paint of the shell. Tile sizes keep
+    // their defaults for any view the user hasn't adjusted yet.
+    const [persistedRoot, tiles] = await Promise.all([getRoot(), getTileSizes()]);
+    settings.update((s) => ({
+      root: tiles.root ?? s.root,
+      photographer: tiles.photographer ?? s.photographer,
+    }));
+    root.set(persistedRoot);
     ready = true;
   });
 
@@ -35,13 +44,19 @@
   <div class="shell">
     <header class="bar">
       {#if $selected}
-        <button class="back" onclick={() => selected.set(null)}
-          >‹ Photographers</button
-        >
-        <span class="path" title={$selected.name}>{$selected.name}</span>
+        <div class="group">
+          <button class="back" onclick={() => selected.set(null)}
+            >‹ Photographers</button
+          >
+          <span class="path" title={$selected.name}>{$selected.name}</span>
+        </div>
+        <TileSizeSlider view="photographer" />
       {:else}
         <span class="path" title={$root}>{$root}</span>
-        <button onclick={change}>Change folder…</button>
+        <div class="group">
+          <TileSizeSlider view="root" />
+          <button onclick={change}>Change folder…</button>
+        </div>
       {/if}
     </header>
     {#if $selected}
@@ -98,6 +113,16 @@
 
   .bar button {
     flex: none;
+  }
+
+  /* Keeps related header items together so .bar's space-between still pushes
+     the path to one edge and the controls to the other. min-width: 0 lets the
+     path ellipsis inside a group. */
+  .group {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
   }
 
   /* Back affordance reads as a quiet link, not a chunky button. */

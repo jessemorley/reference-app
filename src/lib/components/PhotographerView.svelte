@@ -8,6 +8,7 @@
   import { listImages } from "../ipc";
   import type { Category, Photographer, RefImage } from "../types";
   import { activeTab, ALL_TAB, UNCATEGORISED_TAB } from "../stores/navigation";
+  import { settings } from "../stores/settings";
   import Thumb from "./Thumb.svelte";
 
   let { root, photographer }: { root: string; photographer: Photographer } =
@@ -100,7 +101,7 @@
     {/if}
 
     <div class="scroller">
-      <ul class="grid">
+      <ul class="grid" style="--tile-min: {$settings.photographer}px">
         {#each shown as img (img.path)}
           <li class="cell">
             <Thumb path={img.path} alt={img.name} />
@@ -184,7 +185,7 @@
     margin: 0;
     padding: 1rem;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(var(--tile-min, 160px), 1fr));
     gap: 0.6rem;
   }
 

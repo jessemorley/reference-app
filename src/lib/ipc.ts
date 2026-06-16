@@ -3,6 +3,7 @@
 
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import type { Category, Photographer, RefImage } from "./types";
+import type { TileView } from "./stores/settings";
 
 /** Open the folder picker; persists and returns the chosen Photography Root,
  *  or null if the user cancels. */
@@ -13,6 +14,29 @@ export function selectRoot(): Promise<string | null> {
 /** The persisted Photography Root, or null on first run. */
 export function getRoot(): Promise<string | null> {
   return invoke<string | null>("get_root");
+}
+
+// View preferences persist through the Rust setting commands (not the JS store
+// plugin) so settings.json keeps a single writer. These typed wrappers hide the
+// raw store keys; callers deal in views and pixels.
+const TILE_SIZE_KEY: Record<TileView, string> = {
+  root: "prefs.rootTileSize",
+  photographer: "prefs.photographerTileSize",
+};
+
+/** Persisted tile sizes per view, with `null` for any not yet set (caller
+ *  applies its default). */
+export async function getTileSizes(): Promise<Record<TileView, number | null>> {
+  const [root, photographer] = await Promise.all([
+    invoke<number | null>("get_setting", { key: TILE_SIZE_KEY.root }),
+    invoke<number | null>("get_setting", { key: TILE_SIZE_KEY.photographer }),
+  ]);
+  return { root, photographer };
+}
+
+/** Persist a view's tile size (the grid column min-width, in px). */
+export function setTileSize(view: TileView, px: number): Promise<void> {
+  return invoke("set_setting", { key: TILE_SIZE_KEY[view], value: px });
 }
 
 /** A row from the Rust `list_photographers` command, where `cover` is the
