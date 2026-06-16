@@ -74,21 +74,27 @@
   }
 
   /* The scroll container. Keeping the scroll here (not on the grid) means the
-     grid itself sizes to its content, so its 1fr columns resolve against a
-     definite width and the tiles' 4:5 height stays stable. A height-constrained
-     grid can't do that — its rows collapse/shrink with the window. */
+     grid itself sizes to its content, so the tiles' 4:5 height derives from a
+     definite column width. A height-constrained grid can't do that — its rows
+     collapse/shrink with the window. */
   .scroller {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
   }
 
+  /* Fixed-width columns (the tile-size value), not minmax(..., 1fr): with 1fr
+     every column stretches to fill the row, so dragging the slider only changes
+     size when the column *count* flips — discrete jumps. A fixed track makes
+     each tile exactly --tile-min wide, so the slider resizes them continuously;
+     auto-fill still packs as many as fit and reflows, leaving a trailing gutter
+     on the right (expected for a thumbnail-size grid). */
   .grid {
     list-style: none;
     margin: 0;
     padding: 1rem;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(var(--tile-min, 200px), 1fr));
+    grid-template-columns: repeat(auto-fill, var(--tile-min, 200px));
     gap: 1rem;
   }
 

@@ -180,12 +180,17 @@
     overflow-y: auto;
   }
 
+  /* Fixed-width columns (the tile-size value), not minmax(..., 1fr): 1fr would
+     stretch columns to fill the row, so the slider would only resize tiles when
+     the column count flips. A fixed track resizes them continuously as you
+     drag; auto-fill still reflows the count and leaves a trailing right gutter
+     (expected for a thumbnail-size grid). */
   .grid {
     list-style: none;
     margin: 0;
     padding: 1rem;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(var(--tile-min, 160px), 1fr));
+    grid-template-columns: repeat(auto-fill, var(--tile-min, 160px));
     gap: 0.6rem;
   }
 
