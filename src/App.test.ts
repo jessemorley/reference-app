@@ -8,11 +8,15 @@ import { root } from "./lib/stores/root";
 vi.mock("./lib/ipc", () => ({
   getRoot: vi.fn(),
   selectRoot: vi.fn(),
+  // The loaded shell mounts PhotographerGrid, which scans on mount; stub it so
+  // App's branching stays the only thing under test.
+  listPhotographers: vi.fn(),
 }));
-import { getRoot, selectRoot } from "./lib/ipc";
+import { getRoot, selectRoot, listPhotographers } from "./lib/ipc";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(listPhotographers).mockResolvedValue([]);
   // The root store is a module-level singleton; reset it between tests.
   root.set(null);
 });

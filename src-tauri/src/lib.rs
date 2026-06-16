@@ -1,5 +1,8 @@
+use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_store::StoreExt;
+
+mod scan;
 
 /// Key under which the Photography Root path is persisted, and the store file
 /// that holds it (and, in later slices, cover pins — see ADR-0002).
@@ -22,16 +25,31 @@ async fn select_root(app: tauri::AppHandle) -> Option<String> {
     store.set(ROOT_KEY, serde_json::Value::String(path.clone()));
     let _ = store.save();
 
+    allow_root_assets(&app, &path);
     Some(path)
 }
 
 /// Return the persisted Photography Root, or `None` on first run.
 #[tauri::command]
 fn get_root(app: tauri::AppHandle) -> Option<String> {
+    read_root(&app)
+}
+
+/// Read the persisted Photography Root without going through the command layer,
+/// so `setup` can reuse it.
+fn read_root(app: &tauri::AppHandle) -> Option<String> {
     let store = app.store(STORE_FILE).ok()?;
     store
         .get(ROOT_KEY)
         .and_then(|v| v.as_str().map(str::to_string))
+}
+
+/// Widen the asset-protocol scope to serve full-res Reference images from
+/// anywhere under `root`. The static scope in tauri.conf.json starts empty;
+/// the Root is user-chosen at runtime, so we grant it here (on selection, and
+/// on startup for the persisted Root).
+fn allow_root_assets(app: &tauri::AppHandle, root: &str) {
+    let _ = app.asset_protocol_scope().allow_directory(root, true);
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -40,7 +58,18 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![select_root, get_root])
+        .setup(|app| {
+            // Grant the persisted Root to the asset scope before the grid loads.
+            if let Some(root) = read_root(app.handle()) {
+                allow_root_assets(app.handle(), &root);
+            }
+            Ok(())
+        })
+        .invoke_handler(tauri::generate_handler![
+            select_root,
+            get_root,
+            scan::list_photographers
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

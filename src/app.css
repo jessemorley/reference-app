@@ -21,9 +21,15 @@ body,
   color: var(--fg);
 }
 
+/* Fixed-height app shell: titlebar row sized to content, everything below it
+   gets the remaining space as one scroll-bounding track. A definite 100vh +
+   grid rows (rather than a percentage-height flex chain) is what guarantees the
+   content region has a real height to scroll within. */
 #app {
-  display: flex;
-  flex-direction: column;
+  height: 100vh;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  overflow: hidden;
 }
 
 /* Drag strip standing in for the hidden-inset titlebar. */
