@@ -5,18 +5,20 @@ the bottom under "Resolved".
 
 ## Open
 
-### Window is not draggable
-*Found: Slice 1 (skeleton).*
-
-The window can't be moved by dragging. The hidden-inset titlebar relies on a
-36px `data-tauri-drag-region` strip at the top of `App.svelte`, but dragging it
-does nothing.
-
-Likely cause: `data-tauri-drag-region` calls the window `start_dragging` API,
-which needs the `core:window:allow-start-dragging` permission — not guaranteed by
-`core:default` in `src-tauri/capabilities/default.json`. Worth verifying the
-strip's height/stacking too (it must sit above content and not be overlapped).
+_None._
 
 ## Resolved
 
-_None yet._
+### Window is not draggable
+*Found: Slice 1 (skeleton). Resolved: Slice 1.*
+
+The window couldn't be moved by dragging the `data-tauri-drag-region` strip in
+`App.svelte`.
+
+Cause confirmed: `data-tauri-drag-region` invokes the window `start_dragging`
+command, which requires the `core:window:allow-start-dragging` permission.
+`core:default` pulls in `core:window:default`, but that default set does **not**
+include `allow-start-dragging`, so the call was silently rejected.
+
+Fix: added `core:window:allow-start-dragging` to the permissions in
+`src-tauri/capabilities/default.json`.
