@@ -128,6 +128,12 @@
 
   let zoomedIn = $derived(natural !== null && transform.scale > fit + 1e-6);
 
+  // The Inspector is meaningful only for a successfully displayed image. The
+  // toggle (button + ⌘I) and the panel all gate on this, so the global pref is
+  // never flipped/persisted with no panel to show (the empty-set race), and the
+  // Slice 8-9 compute seam never fires on undecodable pixels (a failed image).
+  let canInspect = $derived(!!image && !failed);
+
   function page(delta: number) {
     onpage(wrapIndex(safeIndex + delta, images.length));
   }
@@ -158,10 +164,17 @@
     } else if (e.metaKey && e.key === "0") {
       e.preventDefault();
       resetZoom();
-    } else if (e.metaKey && (e.key === "i" || e.key === "I")) {
-      // ⌘I toggles the Inspector (matches macOS Preview's Show Inspector). Only
-      // bound while the Viewer is open — the Inspector can't exist without an
-      // open image — and swallowed above when the backdrop menu is up.
+    } else if (
+      canInspect &&
+      e.metaKey &&
+      !e.altKey &&
+      !e.ctrlKey &&
+      (e.key === "i" || e.key === "I")
+    ) {
+      // ⌘I toggles the Inspector (matches macOS Preview's Show Inspector). Gated
+      // on canInspect so it never flips (and persists) the pref with no panel to
+      // show; the alt/ctrl guard keeps ⌘⌥I / ⌘⌃I chords from triggering it. Only
+      // bound while the Viewer is open, and swallowed above when the menu is up.
       e.preventDefault();
       toggleInspector();
     }
@@ -210,11 +223,15 @@
   function onContextmenu(e: MouseEvent) {
     e.preventDefault();
     if ((e.target as HTMLElement).tagName === "IMG") return;
-    // The menu is positioned within the viewer (absolute, or fixed when
-    // expanded), so place it relative to the viewer's own box — not the window —
-    // or it lands offset by the titlebar + header in windowed mode.
+    // The menu is positioned within the surround (absolute, or fixed when
+    // expanded), so place it relative to the surround's own box — not the window
+    // — or it lands offset by the titlebar + header in windowed mode. Clamp so a
+    // right-click near an edge doesn't push the menu under the surround's
+    // overflow:hidden boundary, which narrows when the Inspector insets it.
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    menu = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    const x = Math.min(e.clientX - rect.left, Math.max(0, rect.width - MENU_W));
+    const y = Math.min(e.clientY - rect.top, Math.max(0, rect.height - MENU_H));
+    menu = { x, y };
   }
   function closeMenu() {
     menu = null;
@@ -230,6 +247,12 @@
     { token: "white", label: "White" },
     { token: "grey", label: "Grey" },
   ];
+
+  // Approximate menu footprint, used only to clamp it inside the surround on a
+  // near-edge right-click. Width tracks the .menu min-width (9rem); height covers
+  // the three backdrop rows plus padding. Overshooting just nudges the menu in.
+  const MENU_W = 160;
+  const MENU_H = 150;
 </script>
 
 <svelte:window onkeydown={onKeydown} />
@@ -242,6 +265,7 @@
   class:expanded
   role="dialog"
   aria-modal="true"
+  tabindex="-1"
   aria-label={image ? `Viewing ${image.name}` : "Image viewer"}
 >
   <!-- The surround: the image column, filled with the persisted Backdrop. Bound
@@ -251,7 +275,6 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
     class="surround"
-    tabindex="-1"
     style="background: {BACKDROP_HEX[$backdrop]}"
     bind:clientWidth={vw}
     bind:clientHeight={vh}
@@ -289,18 +312,22 @@
 
     <!-- Corner control cluster: Inspector toggle + expand (backdrop is
          right-click). Pinned to the image column's corner, so it sits just left
-         of the Inspector when that's open. -->
+         of the Inspector when that's open. The Inspector toggle shows only when
+         there's a displayable image to inspect — same canInspect gate as ⌘I and
+         the panel, so the control can't drift from the thing it controls. -->
     <div class="controls">
-      <button
-        class="ctrl"
-        type="button"
-        title={$inspectorOpen ? "Hide Inspector" : "Show Inspector"}
-        aria-label={$inspectorOpen ? "Hide Inspector" : "Show Inspector"}
-        aria-pressed={$inspectorOpen}
-        onclick={toggleInspector}
-      >
-        ◨
-      </button>
+      {#if canInspect}
+        <button
+          class="ctrl"
+          type="button"
+          title={$inspectorOpen ? "Hide Inspector" : "Show Inspector"}
+          aria-label={$inspectorOpen ? "Hide Inspector" : "Show Inspector"}
+          aria-pressed={$inspectorOpen}
+          onclick={toggleInspector}
+        >
+          ◨
+        </button>
+      {/if}
       <button
         class="ctrl"
         type="button"
@@ -350,8 +377,10 @@
     {/if}
   </div>
 
-  <!-- Inspector insets the surround when open; only with an image to inspect. -->
-  {#if $inspectorOpen && image}
+  <!-- Inspector insets the surround when open; only with a displayable image to
+       inspect. Spelled out as `image && !failed` (rather than canInspect) so the
+       compiler narrows `image` to non-null for the prop — same condition. -->
+  {#if $inspectorOpen && image && !failed}
     <Inspector {image} />
   {/if}
 </div>

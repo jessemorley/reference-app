@@ -22,11 +22,12 @@
     // Histogram + palette calls land here in slices 8-9.
   }
 
-  // Re-run per distinct open image (keyed on path, the stable identity). Runs
-  // once on mount; the cleanup flags the in-flight compute as stale before the
-  // next image's run, so a slow result never lands on the wrong image.
+  // Re-run whenever the open image changes — on mount (Inspector opened for the
+  // current image) and on every page to a new image while open. Passing `image`
+  // to recompute reads the derived, so that read is the tracked dependency; the
+  // cleanup flags the in-flight compute as stale before the next image's run, so
+  // a slow result never lands on the wrong image.
   $effect(() => {
-    image.path; // track
     const signal = { cancelled: false };
     recompute(image, signal);
     return () => {
