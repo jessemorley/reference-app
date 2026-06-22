@@ -4,8 +4,8 @@ Build order is **vertical slices**: each slice ends in something you can open an
 use. Slices 1–5 give a working browser before any analysis exists; the three
 analysis tools (7, 8, 9) land independently.
 
-See `CONTEXT.md` for domain terms and `docs/adr/` for the analysis-split (0001)
-and pin-storage (0002) decisions.
+See `CONTEXT.md` for domain terms and `docs/adr/` for the analysis-split (0001),
+pin-storage (0002), and luminosity-definition (0003) decisions.
 
 ---
 
@@ -18,6 +18,16 @@ and pin-storage (0002) decisions.
   `tauri-plugin-opener` (reveal-in-Finder).
 - **Appearance**: fixed dark vibrancy chrome (`NSVisualEffectView` via Tauri
   window `effects`); not system-following.
+
+## Target images
+
+Reference images are mostly **~1080p PNG/JPG gathered from Instagram**, not large
+camera originals. Sizing decisions assume this common case: thumbnails, the
+viewer, and the analysis tools are tuned for screen-resolution images. Large
+files (multi-megapixel originals, RAW is out of scope) are the rare case and only
+need to degrade gracefully, not be optimised for — e.g. the Slice-7 eyedropper
+caps its sampling canvas (below) rather than guaranteeing 1:1 fidelity on a 24MP
+file.
 
 ## Project layout
 
@@ -199,10 +209,48 @@ history — `Slice N` / `Merge slice N` commits; these markers mirror it.)
 - **Done when:** panel toggles, remembers open/closed across launches.
 
 ### 7. Eyedropper ⬜  *(Canvas, ADR-0001)*
-- Hidden source-resolution `<canvas>` per open image. `mousemove` → map cursor to
-  **source** pixel (account for zoom/pan transform), read 1×1, compute L (BT.709).
-- Readout shows R/G/B/L live.
-- **Done when:** hovering reports correct values, still correct when zoomed in.
+- **Pixel source:** a *separate* hidden `<img crossOrigin="anonymous">` per open
+  image (not the display `<img>`), drawn once into a sampling `<canvas>` and then
+  released — the display image is left untouched so a CORS misstep can't regress
+  the Slice-5 viewer. `crossOrigin="anonymous"` + Tauri's asset-protocol CORS
+  headers keep the canvas origin-clean so `getImageData` works; **verifying that
+  at runtime is part of "done"**, not just compiling.
+- **Canvas size:** capped to WebKit's max canvas area (≈16.7M px) preserving
+  aspect, *not* literal source resolution — a 24MP file would blow the limit and
+  render blank. For ~1080p targets (see Target images) the cap never bites; above
+  it, each canvas pixel covers >1 source pixel and the readout is the nearest
+  sampled pixel (acceptable — this is colour-judgement, not pixel-forensics).
+- **Active only while the Inspector is open** (`inspectorOpen && loaded &&
+  !failed`): no readout target otherwise, and it skips the draw/memory cost when
+  analysis is off. The sampling canvas is built in the Viewer (it owns the image
+  load lifecycle + transform + surround handlers); torn down on close.
+- `mousemove` (rAF-coalesced to one read per frame) → map cursor to the
+  **source** pixel via `toSourcePixel` (transform.ts, already proven), then a
+  source→canvas scale, read 1×1, compute L.
+- **L = Rec. 709 luma on the sRGB bytes** — `round(0.2126·R + 0.7152·G +
+  0.0722·B)`, 0–255, *not* linearized luminance (ADR-0003; Slice 8's histogram L
+  channel must match).
+- **Data flow:** a transient `eyedropper` store (`writable<{r,g,b,l} | null>`,
+  never persisted). Viewer writes on hover; the Inspector's "Colour" region reads
+  it (and Slice 8's histogram hover-line will read the same source). Resets to
+  `null` on image change, mouse-leave, and Inspector close.
+- **Readout:** R/G/B/L as integers 0–255 plus a small swatch chip of the hovered
+  colour; falls back to the "Hover the image to read R / G / B / L" stub when not
+  over image pixels (reading `null`).
+- **Cursor:** the zoomed pan-hand (grab/grabbing) is suppressed while the
+  Inspector is open, so a plain cursor allows precise sampling; panning still
+  works, and the pan-hand returns when the Inspector is closed.
+- **HEIC/AVIF work here** — the hidden source `<img>` decodes natively in
+  WKWebView, so `drawImage` + `getImageData` succeed even though the `image`
+  crate can't thumbnail those formats (same asymmetry as the viewer, not a bug).
+- **Testing:** pure + tested — `luminance(r,g,b)`, `samplingCanvasSize(natural,
+  maxArea)` (aspect-preserving under the cap), and `toCanvasSample(transform,
+  point, natural, canvasSize)` → `{x,y} | null` (source→canvas map + bounds
+  check). Canvas / `getImageData` / rAF / store wiring stays untested glue (the
+  Slice-5 pattern).
+- **Done when:** hovering reports correct values, still correct when zoomed in,
+  and a real `getImageData` read returns non-tainted pixels on an asset-protocol
+  image.
 
 ### 8. Histogram ⬜  *(Rust compute, Canvas draw)*
 - `compute_histogram` returns 256-bin r/g/b/l arrays (one decode pass).
