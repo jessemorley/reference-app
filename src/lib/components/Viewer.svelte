@@ -6,8 +6,14 @@
   // the window (ephemeral — every open starts windowed). All geometry lives in
   // the pure ../viewer/transform module so the Slice-7 eyedropper can reuse it.
   import type { RefImage } from "../types";
-  import { assetUrl, setBackdrop } from "../ipc";
-  import { backdrop, BACKDROP_HEX, type Backdrop } from "../stores/settings";
+  import { assetUrl, setBackdrop, setInspectorOpen } from "../ipc";
+  import {
+    backdrop,
+    BACKDROP_HEX,
+    inspectorOpen,
+    type Backdrop,
+  } from "../stores/settings";
+  import Inspector from "./Inspector.svelte";
   import {
     fitScale,
     fitTransform,
@@ -122,6 +128,12 @@
 
   let zoomedIn = $derived(natural !== null && transform.scale > fit + 1e-6);
 
+  // The Inspector is meaningful only for a successfully displayed image. The
+  // toggle (button + ⌘I) and the panel all gate on this, so the global pref is
+  // never flipped/persisted with no panel to show (the empty-set race), and the
+  // Slice 8-9 compute seam never fires on undecodable pixels (a failed image).
+  let canInspect = $derived(!!image && !failed);
+
   function page(delta: number) {
     onpage(wrapIndex(safeIndex + delta, images.length));
   }
@@ -152,7 +164,31 @@
     } else if (e.metaKey && e.key === "0") {
       e.preventDefault();
       resetZoom();
+    } else if (
+      canInspect &&
+      e.metaKey &&
+      !e.altKey &&
+      !e.ctrlKey &&
+      (e.key === "i" || e.key === "I")
+    ) {
+      // ⌘I toggles the Inspector (matches macOS Preview's Show Inspector). Gated
+      // on canInspect so it never flips (and persists) the pref with no panel to
+      // show; the alt/ctrl guard keeps ⌘⌥I / ⌘⌃I chords from triggering it. Only
+      // bound while the Viewer is open, and swallowed above when the menu is up.
+      e.preventDefault();
+      toggleInspector();
     }
+  }
+
+  // The Inspector's shown-state is a durable global preference (settings store +
+  // backend), not transient overlay state — so persist on every toggle, exactly
+  // like the Backdrop. The panel itself only renders while the Viewer is open.
+  function toggleInspector() {
+    inspectorOpen.update((open) => {
+      const next = !open;
+      void setInspectorOpen(next);
+      return next;
+    });
   }
 
   // Scroll pans (scroll is not zoom — ⌘± owns zoom). Natural direction: content
@@ -183,15 +219,20 @@
   // Right-click the surround → backdrop menu. Right-clicking the *image* is
   // reserved for Slice-10 image actions, so suppress the native menu there and
   // do nothing for now.
+  let viewerEl!: HTMLDivElement;
   let menu = $state<{ x: number; y: number } | null>(null);
   function onContextmenu(e: MouseEvent) {
     e.preventDefault();
     if ((e.target as HTMLElement).tagName === "IMG") return;
-    // The menu is positioned within the viewer (absolute, or fixed when
-    // expanded), so place it relative to the viewer's own box — not the window —
-    // or it lands offset by the titlebar + header in windowed mode.
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    menu = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    // The menu renders at the Viewer level (not inside the surround) so it can lie
+    // over the Inspector rather than being clipped at the surround's edge. Place
+    // it relative to the Viewer's own box — not the window, or it lands offset by
+    // the titlebar + header in windowed mode — and clamp so a near-edge right-
+    // click keeps the menu fully on-screen.
+    const box = viewerEl.getBoundingClientRect();
+    const x = Math.min(e.clientX - box.left, Math.max(0, box.width - MENU_W));
+    const y = Math.min(e.clientY - box.top, Math.max(0, box.height - MENU_H));
+    menu = { x, y };
   }
   function closeMenu() {
     menu = null;
@@ -207,14 +248,19 @@
     { token: "white", label: "White" },
     { token: "grey", label: "Grey" },
   ];
+
+  // Approximate menu footprint, used only to clamp it inside the Viewer on a
+  // near-edge right-click. Width tracks the .menu min-width (9rem); height covers
+  // the three backdrop rows plus padding. Overshooting just nudges the menu in.
+  const MENU_W = 160;
+  const MENU_H = 150;
 </script>
 
 <svelte:window onkeydown={onKeydown} />
 
-<!-- The surround. role/aria mark it as a modal image surface; the fill is the
-     persisted Backdrop. Pointer/scroll/right-click handlers live here so the
-     whole surround responds, not just the image. -->
-<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+<!-- Outer box: the whole Viewer. role/aria mark it as a modal image surface; it
+     lays the surround and (when open) the Inspector out as a row. Windowed it
+     fills the content region; expanded it's fixed over the whole window. -->
 <div
   class="viewer"
   class:expanded
@@ -222,55 +268,90 @@
   aria-modal="true"
   tabindex="-1"
   aria-label={image ? `Viewing ${image.name}` : "Image viewer"}
-  style="background: {BACKDROP_HEX[$backdrop]}"
-  bind:clientWidth={vw}
-  bind:clientHeight={vh}
-  onwheel={onWheel}
-  onpointerdown={onPointerdown}
-  onpointermove={onPointermove}
-  onpointerup={onPointerup}
-  oncontextmenu={onContextmenu}
+  bind:this={viewerEl}
 >
-  {#if image}
-    {#if failed}
-      <p class="state">Can't display this image.</p>
-    {:else if !loaded}
-      <p class="state">Loading…</p>
+  <!-- The surround: the image column, filled with the persisted Backdrop. Bound
+       to vw/vh so all fit/zoom/pan math tracks the *visible* image width — which
+       shrinks when the Inspector insets it. Pointer/scroll/right-click handlers
+       live here so the whole surround responds, not just the image. -->
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div
+    class="surround"
+    style="background: {BACKDROP_HEX[$backdrop]}"
+    bind:clientWidth={vw}
+    bind:clientHeight={vh}
+    onwheel={onWheel}
+    onpointerdown={onPointerdown}
+    onpointermove={onPointermove}
+    onpointerup={onPointerup}
+    oncontextmenu={onContextmenu}
+  >
+    {#if image}
+      {#if failed}
+        <p class="state">Can't display this image.</p>
+      {:else if !loaded}
+        <p class="state">Loading…</p>
+      {/if}
+
+      {#if src}
+        <img
+          class="image"
+          class:hidden={!loaded || failed}
+          class:grabbable={zoomedIn}
+          class:grabbing={dragging}
+          {src}
+          alt={image.name}
+          draggable="false"
+          decoding="async"
+          style="transform: translate({transform.tx}px, {transform.ty}px) scale({transform.scale}); transform-origin: top left; transition: {animateZoom
+            ? ZOOM_EASE
+            : 'none'}"
+          onload={onImgLoad}
+          onerror={() => (failed = true)}
+        />
+      {/if}
     {/if}
 
-    {#if src}
-      <img
-        class="image"
-        class:hidden={!loaded || failed}
-        class:grabbable={zoomedIn}
-        class:grabbing={dragging}
-        {src}
-        alt={image.name}
-        draggable="false"
-        decoding="async"
-        style="transform: translate({transform.tx}px, {transform.ty}px) scale({transform.scale}); transform-origin: top left; transition: {animateZoom
-          ? ZOOM_EASE
-          : 'none'}"
-        onload={onImgLoad}
-        onerror={() => (failed = true)}
-      />
-    {/if}
-  {/if}
-
-  <!-- Corner control cluster: just the expand toggle (backdrop is right-click). -->
-  <div class="controls">
-    <button
-      class="ctrl"
-      type="button"
-      title={expanded ? "Shrink to window" : "Expand to fill window"}
-      aria-label={expanded ? "Shrink to window" : "Expand to fill window"}
-      aria-pressed={expanded}
-      onclick={() => (expanded = !expanded)}
-    >
-      {expanded ? "⤡" : "⤢"}
-    </button>
+    <!-- Corner control cluster: Inspector toggle + expand (backdrop is
+         right-click). Pinned to the image column's corner, so it sits just left
+         of the Inspector when that's open. The Inspector toggle shows only when
+         there's a displayable image to inspect — same canInspect gate as ⌘I and
+         the panel, so the control can't drift from the thing it controls. -->
+    <div class="controls">
+      {#if canInspect}
+        <button
+          class="ctrl"
+          type="button"
+          title={$inspectorOpen ? "Hide Inspector" : "Show Inspector"}
+          aria-label={$inspectorOpen ? "Hide Inspector" : "Show Inspector"}
+          aria-pressed={$inspectorOpen}
+          onclick={toggleInspector}
+        >
+          ◨
+        </button>
+      {/if}
+      <button
+        class="ctrl"
+        type="button"
+        title={expanded ? "Shrink to window" : "Expand to fill window"}
+        aria-label={expanded ? "Shrink to window" : "Expand to fill window"}
+        aria-pressed={expanded}
+        onclick={() => (expanded = !expanded)}
+      >
+        {expanded ? "⤡" : "⤢"}
+      </button>
+    </div>
   </div>
 
+  <!-- Inspector insets the surround when open; only with a displayable image to
+       inspect. Spelled out as `image && !failed` (rather than canInspect) so the
+       compiler narrows `image` to non-null for the prop — same condition. -->
+  {#if $inspectorOpen && image && !failed}
+    <Inspector {image} />
+  {/if}
+
+  <!-- Backdrop menu sits at the Viewer level so it can render over the Inspector
+       column rather than being clipped at the surround's overflow:hidden edge. -->
   {#if menu}
     <!-- Click-away catcher closes the menu; sits under it. -->
     <button
@@ -311,10 +392,12 @@
 <style>
   /* Windowed: fills the content region (its positioned ancestor in
      PhotographerView). Expanded: fixed over the whole window — the titlebar and
-     header included; traffic lights are OS-drawn and stay clickable on top. */
+     header included; traffic lights are OS-drawn and stay clickable on top.
+     A row so the Inspector can take its own column beside the image surround. */
   .viewer {
     position: absolute;
     inset: 0;
+    display: flex;
     overflow: hidden;
     z-index: 10;
     user-select: none;
@@ -322,6 +405,16 @@
 
   .viewer.expanded {
     position: fixed;
+  }
+
+  /* The image column. Flexes into whatever the Inspector leaves; positioned so
+     the image and controls lay out against it (the backdrop menu lays out
+     against the Viewer instead, so it can overlay the Inspector). */
+  .surround {
+    position: relative;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .image {

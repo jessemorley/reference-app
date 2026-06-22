@@ -5,9 +5,35 @@ the bottom under "Resolved".
 
 ## Open
 
-_None._
+### 1. Window not draggable when image maximised
 
 ## Resolved
+
+### Photographer grid bleeds through the header/viewer seam
+*Found: Slice 6 (Inspector shell). Resolved: Slice 6.*
+
+In single-image view, a 1px sliver of the photographer grid was visible through
+the sub-pixel seam between the menubar and the content region. The grid sits
+directly behind the Viewer overlay (both fill `.view`), so at a fractional-pixel
+boundary a thumbnail row bled through. Hid the grid and tabs behind the open
+Viewer with `visibility: hidden` (kept in layout so scroll position survives),
+so the occluded content isn't painted and can't leak.
+
+### BG Colour (backdrop) menu clipped by the Inspector
+*Found: Slice 6 (Inspector shell). Resolved: Slice 6.*
+
+The right-click backdrop ("BG Colour") menu rendered inside the image surround,
+which clips overflow. With the Inspector open, a menu opened near the surround's
+right edge was cut off at the Inspector column instead of showing over it. Moved
+the menu (and its click-away scrim) up to the Viewer level so it lays out against
+the Viewer box and renders over the Inspector, clamped to stay on-screen.
+
+### Menubar text is highlightable
+*Found: Slice 6 (Inspector shell). Resolved: Slice 6.*
+
+The header bar's labels (root path, photographer name) could be drag-selected
+like body text. Added `user-select: none` (with `-webkit-` for the macOS
+WKWebView) to `.bar` so the chrome behaves like chrome.
 
 ### Window is not draggable
 *Found: Slice 1 (skeleton). Resolved: Slice 1.*

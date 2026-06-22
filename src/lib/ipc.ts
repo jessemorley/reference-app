@@ -98,3 +98,17 @@ export function getBackdrop(): Promise<string | null> {
 export function setBackdrop(token: string): Promise<void> {
   return invoke("set_setting", { key: BACKDROP_KEY, value: token });
 }
+
+const INSPECTOR_OPEN_KEY = "prefs.inspectorOpen";
+
+/** The persisted Inspector open/closed preference, or null if never set (caller
+ *  applies its default). Durable and global even though the Inspector only
+ *  renders while a Reference image is open. */
+export function getInspectorOpen(): Promise<boolean | null> {
+  return invoke<boolean | null>("get_setting", { key: INSPECTOR_OPEN_KEY });
+}
+
+/** Persist the Inspector open/closed preference. */
+export function setInspectorOpen(open: boolean): Promise<void> {
+  return invoke("set_setting", { key: INSPECTOR_OPEN_KEY, value: open });
+}

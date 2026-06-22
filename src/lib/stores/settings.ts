@@ -55,3 +55,18 @@ export function asBackdrop(value: unknown): Backdrop {
     ? value
     : DEFAULT_BACKDROP;
 }
+
+/** Whether the Inspector (the analysis panel beside the Viewer — see CONTEXT.md)
+ *  is shown. Viewer-bound: the panel only renders while an image is open, but the
+ *  preference itself is durable and global, so it survives closing the Viewer and
+ *  relaunching. Default closed — viewing is the primary task; analysis is opt-in.
+ *  Hydrated from the backend store on startup (App.svelte). */
+export const DEFAULT_INSPECTOR_OPEN = false;
+
+export const inspectorOpen = writable<boolean>(DEFAULT_INSPECTOR_OPEN);
+
+/** Coerce an arbitrary persisted value to a boolean, defaulting when it's null
+ *  or hand-edited to something else. */
+export function asInspectorOpen(value: unknown): boolean {
+  return typeof value === "boolean" ? value : DEFAULT_INSPECTOR_OPEN;
+}
