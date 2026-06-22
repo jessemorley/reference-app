@@ -186,6 +186,23 @@ reveal_in_finder(path)
 - Refresh: ⌘R re-scans; also rescan-on-window-focus.
 - **Done when:** pin/search/reveal/refresh all work end to end.
 
+### 11. Photographer info
+- Per-photographer metadata: Instagram link + short blurb. Stored in a hidden
+  file inside each photographer folder (e.g. `.refapp.json` / `.refapp.toml`),
+  so it travels with the folder rather than living in the app store.
+- `scan.rs` reads the file when listing photographers; missing/malformed file →
+  no info (don't break the grid). Surface on `Photographer` (e.g. add
+  `instagram: string | null`, `blurb: string | null` to the IPC shape).
+- Show in `PhotographerView` header: blurb text + Instagram link
+  (opens externally via `tauri-plugin-opener`).
+- Editable in-app: an edit affordance in the header opens a small form
+  (blurb + Instagram); saving writes the hidden file via a new command
+  (e.g. `set_photographer_info(relPath, { instagram, blurb })`). Create the
+  file on first save; the folder needn't already have one.
+- **Done when:** a folder with the hidden file shows its blurb + working
+  Instagram link; a folder without one renders cleanly with no info; editing
+  in-app persists to the hidden file and survives relaunch.
+
 ---
 
 ## Deferred (not v1)
