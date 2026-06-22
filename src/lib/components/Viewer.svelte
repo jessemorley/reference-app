@@ -22,6 +22,12 @@
     wrapIndex,
     type Transform,
   } from "../viewer/transform";
+  import {
+    luminance,
+    samplingCanvasSize,
+    toCanvasSample,
+  } from "../analysis/eyedropper";
+  import { reading } from "../stores/eyedropper";
 
   let {
     images,
@@ -216,6 +222,99 @@
     (e.currentTarget as Element).releasePointerCapture(e.pointerId);
   }
 
+  // --- Eyedropper (Slice 7, ADR-0001) --------------------------------------
+  // A *separate* hidden source <img crossOrigin="anonymous"> is decoded and drawn
+  // once into an offscreen sampling canvas (capped to WebKit's max area); each
+  // hover reads the 1×1 pixel under the cursor. Kept off the display <img> so a
+  // CORS misstep can't regress the viewer, and active only while the Inspector is
+  // open — its Colour region is the only readout target (the pure source→canvas
+  // map + luma maths live in ../analysis/eyedropper).
+  let sampleCtx: CanvasRenderingContext2D | null = null;
+  let sampleSize: { width: number; height: number } | null = null;
+
+  // Build (and tear down) the sampling canvas when the Inspector is open and the
+  // image is displayable. Re-runs on paging (src) and on toggling the Inspector;
+  // clears the reading on every (re)build so a stale value never lingers.
+  $effect(() => {
+    reading.set(null);
+    if (!$inspectorOpen || !src || !loaded || failed) {
+      sampleCtx = null;
+      sampleSize = null;
+      return;
+    }
+    let cancelled = false;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      if (cancelled) return;
+      const size = samplingCanvasSize({
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+      });
+      const c = document.createElement("canvas");
+      c.width = size.width;
+      c.height = size.height;
+      const ctx = c.getContext("2d", { willReadFrequently: true });
+      if (!ctx) return;
+      ctx.drawImage(img, 0, 0, size.width, size.height);
+      sampleCtx = ctx;
+      sampleSize = size;
+      // Drawn — drop the handler so the decoded source can be freed; the canvas
+      // now holds the only copy we need (approach A's extra decode is transient,
+      // not held for the open-image lifetime). The cleanup deliberately does NOT
+      // capture `img`, so nothing keeps it (or its bitmap) reachable past here.
+      img.onload = null;
+    };
+    img.src = src;
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(rafPending);
+      rafPending = 0;
+      sampleCtx = null;
+      sampleSize = null;
+      reading.set(null);
+    };
+  });
+
+  // rAF-coalesce: store the latest cursor point, do at most one read per frame.
+  let rafPending = 0;
+  let lastPoint: { x: number; y: number } | null = null;
+
+  function onSampleMove(e: MouseEvent) {
+    if (!sampleCtx || !sampleSize || !natural) return;
+    const box = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    lastPoint = { x: e.clientX - box.left, y: e.clientY - box.top };
+    if (!rafPending) rafPending = requestAnimationFrame(sampleNow);
+  }
+
+  function sampleNow() {
+    rafPending = 0;
+    if (!sampleCtx || !sampleSize || !natural || !lastPoint) return;
+    const at = toCanvasSample(transform, lastPoint, natural, sampleSize);
+    if (!at) {
+      reading.set(null);
+      return;
+    }
+    try {
+      const [r, g, b] = sampleCtx.getImageData(at.x, at.y, 1, 1).data;
+      reading.set({ r, g, b, l: luminance(r, g, b) });
+    } catch {
+      // Tainted canvas (CORS not as expected): stop sampling rather than throw
+      // every frame. The "done when" runtime check is meant to catch this early.
+      sampleCtx = null;
+      reading.set(null);
+    }
+  }
+
+  function onSampleLeave() {
+    if (rafPending) {
+      cancelAnimationFrame(rafPending);
+      rafPending = 0;
+    }
+    lastPoint = null;
+    reading.set(null);
+  }
+
   // Right-click the surround → backdrop menu. Right-clicking the *image* is
   // reserved for Slice-10 image actions, so suppress the native menu there and
   // do nothing for now.
@@ -284,6 +383,8 @@
     onpointerdown={onPointerdown}
     onpointermove={onPointermove}
     onpointerup={onPointerup}
+    onmousemove={onSampleMove}
+    onmouseleave={onSampleLeave}
     oncontextmenu={onContextmenu}
   >
     {#if image}
@@ -297,8 +398,8 @@
         <img
           class="image"
           class:hidden={!loaded || failed}
-          class:grabbable={zoomedIn}
-          class:grabbing={dragging}
+          class:grabbable={zoomedIn && !$inspectorOpen}
+          class:grabbing={dragging && !$inspectorOpen}
           {src}
           alt={image.name}
           draggable="false"

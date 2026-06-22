@@ -47,8 +47,12 @@ but whether it is shown is a durable, global preference.
 _Avoid_: panel, sidebar, analysis pane.
 
 **Eyedropper**:
-The hover tool that reports the pixel under the cursor as R, G, B and L (luminosity,
-ITU-R BT.709). Runs locally against a canvas for zero-latency readout.
+The hover tool that reports the pixel under the cursor as R, G, B and L. **L** is
+Rec. 709 *luma* — the weighted sum of the sRGB-encoded channels (0–255), in the
+same encoding as R/G/B — not linear luminance (see ADR-0003). Runs locally
+against a canvas for zero-latency readout.
+_Avoid_: "luminosity" unqualified (it's luma on the gamma-encoded bytes, a
+specific choice, not physical luminance).
 
 **Colour-scheme extractor**:
 The tool that derives a small palette of dominant colours from a Reference image.
