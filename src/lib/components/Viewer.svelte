@@ -259,11 +259,17 @@
       ctx.drawImage(img, 0, 0, size.width, size.height);
       sampleCtx = ctx;
       sampleSize = size;
+      // Drawn — drop the handler so the decoded source can be freed; the canvas
+      // now holds the only copy we need (approach A's extra decode is transient,
+      // not held for the open-image lifetime). The cleanup deliberately does NOT
+      // capture `img`, so nothing keeps it (or its bitmap) reachable past here.
+      img.onload = null;
     };
     img.src = src;
     return () => {
       cancelled = true;
-      img.onload = null;
+      cancelAnimationFrame(rafPending);
+      rafPending = 0;
       sampleCtx = null;
       sampleSize = null;
       reading.set(null);
