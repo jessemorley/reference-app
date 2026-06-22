@@ -76,3 +76,23 @@ export async function ensureThumb(path: string): Promise<string> {
   const thumbPath = await invoke<string>("ensure_thumb", { imgPath: path });
   return convertFileSrc(thumbPath);
 }
+
+/** Asset-protocol URL for an original file, for the Viewer's full-res `<img>`.
+ *  The Root is already in the asset scope (`lib.rs` `allow_root_assets`), so this
+ *  is a pure URL transform with no IPC round-trip; HEIC/AVIF decode in WKWebView
+ *  even though their thumbnails can't (the `image` crate gates only thumbs). */
+export function assetUrl(path: string): string {
+  return convertFileSrc(path);
+}
+
+/** The persisted Backdrop token, or null if never set (caller applies its
+ *  default). The token — not a hex — is stored so the palette can be retuned
+ *  without migrating saved values. */
+export function getBackdrop(): Promise<string | null> {
+  return invoke<string | null>("get_setting", { key: "prefs.backdrop" });
+}
+
+/** Persist the Backdrop token (`"black" | "white" | "grey"`). */
+export function setBackdrop(token: string): Promise<void> {
+  return invoke("set_setting", { key: "prefs.backdrop", value: token });
+}

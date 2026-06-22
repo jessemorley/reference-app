@@ -54,9 +54,12 @@ Defined in `IMPLEMENTATION.md` §Slices/4.
     inside a view. "Change folder…" clears `selected` before re-scanning.
 
 ### Gotcha worth knowing
-The HEIC/AVIF limitation from Slice 3 still applies: such images **list** in the
-grid but show the `Thumb` placeholder (the `image` crate can't decode them).
-Same will bite the Slice 5 viewer (full-res).
+The HEIC/AVIF limitation from Slice 3 still applies to **thumbnails**: such images
+**list** in the grid but show the `Thumb` placeholder (the `image` crate can't
+decode them). This does **not** carry to the Slice 5 viewer: the viewer loads the
+original file via `convertFileSrc` into an `<img>`, decoded by **WKWebView**, which
+handles HEIC/AVIF natively on macOS — so they display full-res even though their
+grid tile is a placeholder (expected grid/viewer asymmetry).
 
 ## Manual verification checklist (Done-when from the plan)
 1. Pick a folder → grid. Click a photographer → its images appear in a flattened

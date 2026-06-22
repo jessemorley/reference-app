@@ -32,6 +32,13 @@ The single Reference image shown on a Photographer's tile in the root grid. Defa
 to the first image alphabetically; the user can pin a specific image as the cover.
 _Avoid_: thumbnail, preview (those mean the small grid renditions, not the chosen one).
 
+**Viewer**:
+The single-image surface: one Reference image shown full-resolution against a
+Backdrop for close inspection and analysis. Entered from the photographer view by
+opening a Reference image, and paged left/right through the images of the active
+filter tab.
+_Avoid_: lightbox, modal, preview.
+
 **Eyedropper**:
 The hover tool that reports the pixel under the cursor as R, G, B and L (luminosity,
 ITU-R BT.709). Runs locally against a canvas for zero-latency readout.
