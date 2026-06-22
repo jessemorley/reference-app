@@ -1,9 +1,14 @@
 <script lang="ts">
   import { listPhotographers } from "../ipc";
   import type { Photographer } from "../types";
+  import { settings } from "../stores/settings";
   import Thumb from "./Thumb.svelte";
 
-  let { root }: { root: string } = $props();
+  let {
+    root,
+    onselect,
+  }: { root: string; onselect: (photographer: Photographer) => void } =
+    $props();
 
   let photographers = $state<Photographer[] | null>(null);
   let error = $state<string | null>(null);
@@ -38,13 +43,22 @@
   {:else if photographers.length === 0}
     <p class="state">No photographers with images in this folder.</p>
   {:else}
-    <ul class="grid">
+    <ul class="grid" style="--tile-min: {$settings.root}px">
       {#each photographers as p (p.relPath)}
-        <li class="tile">
-          <div class="cover">
-            <Thumb path={p.coverPath} />
-          </div>
-          <span class="name">{p.name}</span>
+        <li>
+          <button
+            class="tile"
+            type="button"
+            title={p.name}
+            onclick={() => onselect(p)}
+          >
+            <div class="cover">
+              <!-- Decorative: the name is shown in the overlay below and is the
+                   button's accessible label, so the cover stays alt="". -->
+              <Thumb path={p.coverPath} />
+            </div>
+            <span class="name">{p.name}</span>
+          </button>
         </li>
       {/each}
     </ul>
@@ -60,29 +74,53 @@
   }
 
   /* The scroll container. Keeping the scroll here (not on the grid) means the
-     grid itself sizes to its content, so its 1fr columns resolve against a
-     definite width and the tiles' 4:5 height stays stable. A height-constrained
-     grid can't do that — its rows collapse/shrink with the window. */
+     grid itself sizes to its content, so the tiles' 4:5 height derives from a
+     definite column width. A height-constrained grid can't do that — its rows
+     collapse/shrink with the window. */
   .scroller {
     flex: 1;
     min-height: 0;
     overflow-y: auto;
   }
 
+  /* minmax(--tile-min, 1fr) so full rows fill edge-to-edge (only the last,
+     partial row leaves space on the right). The trade-off: 1fr equalises every
+     column to width/N, so the slider resizes tiles in discrete steps as the
+     column count flips, not continuously — at a fixed window width you can have
+     a perfect fill OR continuous resize, not both, and we chose fill. */
   .grid {
     list-style: none;
     margin: 0;
     padding: 1rem;
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(var(--tile-min, 200px), 1fr));
     gap: 1rem;
   }
 
+  /* The tile is a button so selecting a photographer is keyboard-reachable and
+     announced as actionable; reset the global button chrome back to a bare,
+     full-width block so the cover + name overlay layout is unchanged. */
   .tile {
+    display: block;
     position: relative;
+    width: 100%;
+    padding: 0;
+    border: none;
+    border-radius: 0;
     overflow: hidden;
     background: rgba(255, 255, 255, 0.04);
     cursor: pointer;
+    text-align: left;
+    transition: none;
+  }
+
+  .tile:hover {
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .tile:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
 
   /* 4:5 portrait. The ratio lives on this cover box (not the grid-item tile) so

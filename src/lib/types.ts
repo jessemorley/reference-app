@@ -17,10 +17,11 @@ export type Category = { name: string; count: number };
 
 export type RefImage = {
   name: string;
-  /** Absolute path, for full-res asset-protocol load. */
+  /** Absolute path, for full-res asset-protocol load. The grid derives the
+   *  cached thumbnail from this on demand via `ensureThumb` / `Thumb.svelte`
+   *  (same pattern as a Photographer's cover), so there's no separate thumb
+   *  field. */
   path: string;
-  /** asset-protocol URL of the cached thumbnail. */
-  thumb: string;
   /** null = loose (directly in the Photographer folder). */
   category: string | null;
 };

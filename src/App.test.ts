@@ -2,23 +2,31 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/svelte";
 import App from "./App.svelte";
 import { root } from "./lib/stores/root";
+import { selected } from "./lib/stores/navigation";
 
 // App hydrates from getRoot() on mount and opens the picker via selectRoot().
 // Mock the IPC layer so the component's branching is the only thing under test.
 vi.mock("./lib/ipc", () => ({
   getRoot: vi.fn(),
   selectRoot: vi.fn(),
+  // App also hydrates tile sizes on mount; the header sliders persist via
+  // setTileSize. Stub both so App's branching stays the only thing under test.
+  getTileSizes: vi.fn(),
+  setTileSize: vi.fn(),
   // The loaded shell mounts PhotographerGrid, which scans on mount; stub it so
   // App's branching stays the only thing under test.
   listPhotographers: vi.fn(),
 }));
-import { getRoot, selectRoot, listPhotographers } from "./lib/ipc";
+import { getRoot, selectRoot, getTileSizes, listPhotographers } from "./lib/ipc";
 
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(listPhotographers).mockResolvedValue([]);
+  vi.mocked(getTileSizes).mockResolvedValue({ root: null, photographer: null });
   // The root store is a module-level singleton; reset it between tests.
   root.set(null);
+  // navigation.selected is likewise module-level; start each test on the grid.
+  selected.set(null);
 });
 
 describe("App branching", () => {
