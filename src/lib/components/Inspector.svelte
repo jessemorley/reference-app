@@ -39,24 +39,23 @@
 
 <aside class="inspector" aria-label="Inspector">
   <section class="region">
-    <h2 class="label">Colour</h2>
-    {#if $reading}
-      <div class="readout">
-        <span
-          class="swatch"
-          style="background: rgb({$reading.r}, {$reading.g}, {$reading.b})"
-          aria-hidden="true"
-        ></span>
-        <dl class="channels">
-          <div><dt>R</dt><dd>{$reading.r}</dd></div>
-          <div><dt>G</dt><dd>{$reading.g}</dd></div>
-          <div><dt>B</dt><dd>{$reading.b}</dd></div>
-          <div><dt>L</dt><dd>{$reading.l}</dd></div>
-        </dl>
+    <h2 class="label">Value</h2>
+    <div class="readout">
+      <span
+        class="swatch"
+        class:empty={!$reading}
+        style={$reading
+          ? `background: rgb(${$reading.r}, ${$reading.g}, ${$reading.b})`
+          : ""}
+        aria-hidden="true"
+      ></span>
+      <div class="channels">
+        <span class="r">{$reading?.r ?? " "}</span>
+        <span class="g">{$reading?.g ?? " "}</span>
+        <span class="b">{$reading?.b ?? " "}</span>
+        <span class="l">{$reading?.l ?? " "}</span>
       </div>
-    {:else}
-      <p class="stub">Hover the image to read R / G / B / L.</p>
-    {/if}
+    </div>
   </section>
   <section class="region">
     <h2 class="label">Histogram</h2>
@@ -109,8 +108,9 @@
     font-size: 0.85rem;
   }
 
-  /* Live R/G/B/L readout: a colour chip beside four labelled channels. Tabular
-     numerals + fixed widths so the values don't jitter as the cursor moves. */
+  /* Live readout on one row: a small colour chip beside the four channel values.
+     The values themselves carry the R/G/B colour (no separate labels); L is
+     neutral. Tabular numerals so they don't jitter as the cursor moves. */
   .readout {
     display: flex;
     align-items: center;
@@ -119,35 +119,45 @@
 
   .swatch {
     flex: none;
-    width: 2.5rem;
-    height: 2.5rem;
-    border-radius: 0.4rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 0.3rem;
     border: 1px solid rgba(255, 255, 255, 0.18);
+  }
+
+  /* No reading yet (cursor off the image): a dashed, unfilled chip so the slot
+     reads as "empty" rather than showing a stale colour. */
+  .swatch.empty {
+    background: rgba(255, 255, 255, 0.03);
+    border-style: dashed;
   }
 
   .channels {
     display: flex;
-    gap: 1rem;
-    margin: 0;
-  }
-
-  .channels div {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-  }
-
-  .channels dt {
-    font-size: 0.65rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    color: var(--fg-dim);
-  }
-
-  .channels dd {
-    margin: 0;
+    gap: 0.55rem;
     font-size: 0.9rem;
     font-variant-numeric: tabular-nums;
+  }
+
+  /* Each value gets a fixed three-digit slot (max is 255), centred — so going
+     from 2 to 3 digits grows symmetrically about the centre rather than shoving
+     the neighbouring channels around. */
+  .channels span {
+    display: inline-block;
+    width: 3ch;
+    text-align: center;
+  }
+
+  .channels .r {
+    color: #ff6b6b;
+  }
+  .channels .g {
+    color: #51cf66;
+  }
+  .channels .b {
+    color: #5c9dff;
+  }
+  .channels .l {
     color: var(--fg);
   }
 

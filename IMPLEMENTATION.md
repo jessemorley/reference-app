@@ -231,12 +231,13 @@ history — `Slice N` / `Merge slice N` commits; these markers mirror it.)
   0.0722·B)`, 0–255, *not* linearized luminance (ADR-0003; Slice 8's histogram L
   channel must match).
 - **Data flow:** a transient `eyedropper` store (`writable<{r,g,b,l} | null>`,
-  never persisted). Viewer writes on hover; the Inspector's "Colour" region reads
+  never persisted). Viewer writes on hover; the Inspector's "Value" region reads
   it (and Slice 8's histogram hover-line will read the same source). Resets to
   `null` on image change, mouse-leave, and Inspector close.
-- **Readout:** R/G/B/L as integers 0–255 plus a small swatch chip of the hovered
-  colour; falls back to the "Hover the image to read R / G / B / L" stub when not
-  over image pixels (reading `null`).
+- **Readout:** a single row — a small swatch chip of the hovered colour beside
+  the four integer values 0–255, with no labels: the R/G/B *values* are tinted in
+  their channel colours, L neutral. With no reading (cursor off the image) the
+  values blank out and the swatch shows an empty dashed chip — no placeholder text.
 - **Cursor:** the zoomed pan-hand (grab/grabbing) is suppressed while the
   Inspector is open, so a plain cursor allows precise sampling; panning still
   works, and the pan-hand returns when the Inspector is closed.
