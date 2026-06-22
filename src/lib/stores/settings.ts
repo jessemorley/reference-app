@@ -26,3 +26,32 @@ export const DEFAULT_TILE_SIZE: Record<TileView, number> = {
 export const settings = writable<Record<TileView, number>>({
   ...DEFAULT_TILE_SIZE,
 });
+
+/** Backdrop: the neutral surround behind the image in the Viewer, so colour can
+ *  be judged against a controlled fill (see CONTEXT.md). Three fixed tokens; the
+ *  greys are true neutrals. Default grey — the least biased surround (black
+ *  crushes shadow perception, white blows highlights). */
+export type Backdrop = "black" | "white" | "grey";
+
+export const DEFAULT_BACKDROP: Backdrop = "grey";
+
+/** Canonical fills for each token. 50% grey is the photographer's neutral
+ *  reference; stored as a token (not this hex) so it can be retuned later. */
+export const BACKDROP_HEX: Record<Backdrop, string> = {
+  black: "#000000",
+  white: "#ffffff",
+  grey: "#7f7f7f",
+};
+
+/** The active Backdrop, hydrated from the backend store on startup (App.svelte);
+ *  the Viewer reads it, its right-click menu writes it. Global — one surround
+ *  everywhere, not per-photographer or per-image. */
+export const backdrop = writable<Backdrop>(DEFAULT_BACKDROP);
+
+/** Narrow an arbitrary persisted value to a known token, falling back to the
+ *  default — guards against a hand-edited or stale store value. */
+export function asBackdrop(value: unknown): Backdrop {
+  return value === "black" || value === "white" || value === "grey"
+    ? value
+    : DEFAULT_BACKDROP;
+}

@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { getRoot, getTileSizes, selectRoot } from "./lib/ipc";
+  import { getBackdrop, getRoot, getTileSizes, selectRoot } from "./lib/ipc";
   import { root } from "./lib/stores/root";
   import { selected } from "./lib/stores/navigation";
-  import { settings } from "./lib/stores/settings";
+  import { settings, backdrop, asBackdrop } from "./lib/stores/settings";
   import RootPicker from "./lib/components/RootPicker.svelte";
   import PhotographerGrid from "./lib/components/PhotographerGrid.svelte";
   import PhotographerView from "./lib/components/PhotographerView.svelte";
@@ -15,11 +15,16 @@
   onMount(async () => {
     // Hydrate persisted state before first paint of the shell. Tile sizes keep
     // their defaults for any view the user hasn't adjusted yet.
-    const [persistedRoot, tiles] = await Promise.all([getRoot(), getTileSizes()]);
+    const [persistedRoot, tiles, savedBackdrop] = await Promise.all([
+      getRoot(),
+      getTileSizes(),
+      getBackdrop(),
+    ]);
     settings.update((s) => ({
       root: tiles.root ?? s.root,
       photographer: tiles.photographer ?? s.photographer,
     }));
+    backdrop.set(asBackdrop(savedBackdrop));
     root.set(persistedRoot);
     ready = true;
   });

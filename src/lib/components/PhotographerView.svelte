@@ -10,6 +10,7 @@
   import { activeTab, ALL_TAB, UNCATEGORISED_TAB } from "../stores/navigation";
   import { settings } from "../stores/settings";
   import Thumb from "./Thumb.svelte";
+  import Viewer from "./Viewer.svelte";
 
   let { root, photographer }: { root: string; photographer: Photographer } =
     $props();
@@ -17,6 +18,10 @@
   let categories = $state<Category[]>([]);
   let images = $state<RefImage[] | null>(null);
   let error = $state<string | null>(null);
+
+  // Index into `shown` of the open image in the Viewer, or null when closed.
+  // Local (not a store): only this subtree and its Viewer child need it (Slice 5).
+  let openIndex = $state<number | null>(null);
 
   // (Re)load on Root/photographer change. Reset the active tab to "All" so we
   // never land on a Category the new photographer lacks. The cancel flag drops
@@ -28,6 +33,7 @@
     images = null;
     error = null;
     categories = [];
+    openIndex = null; // close any open viewer when the photographer changes
     activeTab.set(ALL_TAB);
 
     listImages(r, relPath)
@@ -102,13 +108,24 @@
 
     <div class="scroller">
       <ul class="grid" style="--tile-min: {$settings.photographer}px">
-        {#each shown as img (img.path)}
+        {#each shown as img, i (img.path)}
           <li class="cell">
-            <Thumb path={img.path} alt={img.name} />
+            <button class="open" type="button" onclick={() => (openIndex = i)}>
+              <Thumb path={img.path} alt={img.name} />
+            </button>
           </li>
         {/each}
       </ul>
     </div>
+
+    {#if openIndex !== null}
+      <Viewer
+        images={shown}
+        index={openIndex}
+        onpage={(i) => (openIndex = i)}
+        onclose={() => (openIndex = null)}
+      />
+    {/if}
   {/if}
 </div>
 
@@ -120,6 +137,9 @@
     min-height: 0;
     display: flex;
     flex-direction: column;
+    /* Positioning context for the Viewer overlay, which fills this content
+       region (below the app header) until expanded to the full window. */
+    position: relative;
   }
 
   .state {
@@ -198,5 +218,22 @@
     aspect-ratio: 4 / 5;
     overflow: hidden;
     background: rgba(255, 255, 255, 0.04);
+  }
+
+  /* The whole tile is the open affordance; reset button chrome to a bare,
+     keyboard-reachable frame (same precedent as PhotographerGrid tiles). */
+  .open {
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: none;
+    cursor: pointer;
+  }
+
+  .open:focus-visible {
+    outline: 2px solid var(--fg);
+    outline-offset: -2px;
   }
 </style>

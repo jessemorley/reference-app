@@ -149,11 +149,39 @@ history — `Slice N` / `Merge slice N` commits; these markers mirror it.)
 - **Done when:** clicking a photographer shows all their images, tabs filter correctly.
 
 ### 5. Viewer ⬜
-- Click an image → full-screen Viewer, full-res via asset protocol.
-- Backdrop selector (black / white / grey), persisted.
-- Scroll-to-zoom + drag-to-pan. Arrow keys page within the **active tab's** set,
-  wrapping; Escape closes.
-- **Done when:** open/zoom/pan/arrow-through/escape all work; backdrop sticks.
+- Click an image → Viewer overlay, full-res via asset protocol
+  (`convertFileSrc` on the original path; the Root is already in the asset scope,
+  `lib.rs` `allow_root_assets`). The overlay covers the **content region** (below
+  the titlebar + header); a corner **expand toggle** grows it to fill the window
+  (expanded state is **ephemeral** — every open starts windowed). Driven by props
+  from `PhotographerView` (`images` = the active tab's `shown` set + `openIndex`):
+  no new store state, no re-deriving the filter — the viewer is a dumb overlay.
+- **Backdrop** (black `#000` / white `#fff` / grey `#7f7f7f`, **default grey**) via
+  **right-click on the surround** → custom HTML context menu (dark-glass, current
+  one check-marked). Persisted globally through `get_setting`/`set_setting`
+  (key `prefs.backdrop`, store the token not the hex), hydrated in `App.svelte`
+  alongside tile sizes, exposed via a `backdrop` store. Right-clicking the *image*
+  is reserved for slice-10 image actions (pin / reveal) — surround vs image are
+  two distinct right-click targets.
+- **⌘+ / ⌘− zoom** (anchored at viewport centre), **⌘0** resets to fit. **Drag and
+  scroll both pan** (only when zoomed past fit; scroll is *not* zoom). Min scale =
+  fit (capped at 1.0), max = `max(1.0, 3·fit)`. Transform is a single
+  `{ scale, tx, ty }` in pure `lib/viewer/transform.ts`, kept invertible
+  (`toSourcePixel`) so the slice-7 eyedropper just inverts it.
+- **← / → page** the active set, **wrapping** (↑/↓ inert). Transform resets to fit
+  on each page; **backdrop + expand persist across paging**. **Escape** closes the
+  viewer outright (windowed or expanded); it does not pop the whole photographer
+  view (the header back button still does that).
+- Full-res `<img decoding="async">`, swapped in on `img.decode()` (plain loading
+  state until then); `onerror` → centred "can't display this image" state.
+  **HEIC/AVIF decode natively in WKWebView**, so they show in the viewer even
+  though their grid tiles are placeholders (the `image` crate can't thumbnail
+  them — grid/viewer format asymmetry is expected, not a bug).
+- **Testing**: pure `lib/viewer/transform.ts` (`fitScale`, `clampScale`,
+  `zoomToward`, `clampPan`, `wrapIndex`, `toSourcePixel`) under Vitest; the
+  pointer/keyboard/`.decode()`/context-menu glue stays untested.
+- **Done when:** open / zoom (⌘±, ⌘0) / pan / arrow-through (wrapping) / escape all
+  work; backdrop sticks across relaunch; expand toggles.
 
 ### 6. Inspector shell ⬜
 - Right-hand glass panel, single toggle (button + shortcut), state remembered.
