@@ -52,8 +52,10 @@
 
 <style>
   /* Own column beside the surround: fixed width, the image flexes into the rest.
-     Dark glass over the window vibrancy, divided from the image by a hairline.
-     Scrolls if the regions ever outgrow the height. */
+     An opaque dark chrome fill (not glass, not transparent) — the panel sits over
+     the content region, not the bare window, so a transparent fill would let the
+     grid bleed through; this reads like the dark chrome without that. Divided
+     from the image by a hairline. Scrolls if the regions outgrow the height. */
   .inspector {
     flex: none;
     width: 300px;
@@ -62,8 +64,9 @@
     gap: 1rem;
     padding: 1rem;
     overflow-y: auto;
-    background: rgba(28, 28, 30, 0.6);
-    backdrop-filter: blur(20px);
+    /* Matches the top bar's rendered colour (sampled from screenshots/
+       bar-colours.png) so the panel reads as the same chrome. */
+    background: #1e1e1e;
     border-left: 1px solid rgba(255, 255, 255, 0.1);
   }
 

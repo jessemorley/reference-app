@@ -5,7 +5,8 @@ the bottom under "Resolved".
 
 ## Open
 
-_None._
+### BG Colour tooltip obscured
+Sometimes the tooltip is obscured by the inspector bar; it should show over it
 
 ## Resolved
 
