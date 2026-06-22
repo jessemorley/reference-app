@@ -116,19 +116,22 @@ reveal_in_finder(path)
 
 ## Slices
 
-### 1. Skeleton
+Status: ✅ done · 🚧 in progress · ⬜ not started. (Source of truth is git
+history — `Slice N` / `Merge slice N` commits; these markers mirror it.)
+
+### 1. Skeleton ✅
 - Scaffold Tauri 2 + Svelte + TS. Dark vibrancy window, hidden-inset titlebar.
 - `select_root` / `get_root` via `tauri-plugin-store`. First-run shows a
   "Select your photography folder" screen; on relaunch, jump straight in.
 - **Done when:** app launches, you pick a folder, relaunch lands back in it.
 
-### 2. Photographer grid
+### 2. Photographer grid ✅
 - `list_photographers`: Root's subdirs only; skip dirs with zero images
   (recursively — a photographer with images only inside Categories still counts).
 - Tiles render Cover = first image alphabetically (full-res for now), name overlaid.
 - **Done when:** grid shows one tile per non-empty photographer with a cover + name.
 
-### 3. Thumbnail cache  *(see ADR-0001 for why Rust owns this)*
+### 3. Thumbnail cache ✅  *(see ADR-0001 for why Rust owns this)*
 - `thumbs.rs`: downscale to grid size, write to app cache dir, key
   `hash(path + mtime + size)`. `ensure_thumb` returns cached URL or generates.
 - Generate concurrently on scan; grid fills in progressively.
@@ -136,7 +139,7 @@ reveal_in_finder(path)
 - **Done when:** a 200-image folder scrolls smoothly; re-opening is instant;
   replacing a file on disk regenerates its thumb (mtime/size change).
 
-### 4. Photographer view
+### 4. Photographer view ✅
 - `list_images`: walk Photographer folder one level deep. Loose images →
   `category: null`; subfolder images → that Category. Build the Category list.
 - Flattened image grid + tab bar: "All" first, then Categories alphabetically.
@@ -145,32 +148,32 @@ reveal_in_finder(path)
 - Tabs filter the grid; track active tab in a navigation store.
 - **Done when:** clicking a photographer shows all their images, tabs filter correctly.
 
-### 5. Viewer
+### 5. Viewer ⬜
 - Click an image → full-screen Viewer, full-res via asset protocol.
 - Backdrop selector (black / white / grey), persisted.
 - Scroll-to-zoom + drag-to-pan. Arrow keys page within the **active tab's** set,
   wrapping; Escape closes.
 - **Done when:** open/zoom/pan/arrow-through/escape all work; backdrop sticks.
 
-### 6. Inspector shell
+### 6. Inspector shell ⬜
 - Right-hand glass panel, single toggle (button + shortcut), state remembered.
 - Lays out three regions: readout, palette bar, histogram (empty stubs for now).
 - Compute-on-open wiring (calls land in 7–9).
 - **Done when:** panel toggles, remembers open/closed across launches.
 
-### 7. Eyedropper  *(Canvas, ADR-0001)*
+### 7. Eyedropper ⬜  *(Canvas, ADR-0001)*
 - Hidden source-resolution `<canvas>` per open image. `mousemove` → map cursor to
   **source** pixel (account for zoom/pan transform), read 1×1, compute L (BT.709).
 - Readout shows R/G/B/L live.
 - **Done when:** hovering reports correct values, still correct when zoomed in.
 
-### 8. Histogram  *(Rust compute, Canvas draw)*
+### 8. Histogram ⬜  *(Rust compute, Canvas draw)*
 - `compute_histogram` returns 256-bin r/g/b/l arrays (one decode pass).
 - `Histogram.svelte`: RGB channels overlaid (lighten/screen blend) + a luminosity
   toggle; linear scale. Live vertical line follows the eyedropper's hovered value.
 - **Done when:** histogram matches the image, toggle works, hover line tracks.
 
-### 9. Colour-scheme extractor  *(Rust, ADR-0001)*
+### 9. Colour-scheme extractor ⬜  *(Rust, ADR-0001)*
 - `extract_palette`: decode → downsample (~thumbnail size) → k-means in CIELAB →
   swatches sorted by weight desc. `k` selector 3–8, default 5.
 - `PaletteBar.svelte`: single proportional bar, segment width = weight. Click a
@@ -178,7 +181,7 @@ reveal_in_finder(path)
 - **Done when:** palette reads true to the image, bar is proportional, copy works,
   changing k recomputes instantly.
 
-### 10. Polish
+### 10. Polish ⬜
 - Cover pinning: pin action in Viewer / image context menu → `set_cover`; grid
   reflects it. (Pins keyed by relative path — ADR-0002.)
 - Photographer search filters the root grid by name.
@@ -186,7 +189,7 @@ reveal_in_finder(path)
 - Refresh: ⌘R re-scans; also rescan-on-window-focus.
 - **Done when:** pin/search/reveal/refresh all work end to end.
 
-### 11. Photographer info
+### 11. Photographer info ⬜
 - Per-photographer metadata: Instagram link + short blurb. Stored in a hidden
   file inside each photographer folder (e.g. `.refapp.json` / `.refapp.toml`),
   so it travels with the folder rather than living in the app store.
