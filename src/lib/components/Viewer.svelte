@@ -219,18 +219,19 @@
   // Right-click the surround → backdrop menu. Right-clicking the *image* is
   // reserved for Slice-10 image actions, so suppress the native menu there and
   // do nothing for now.
+  let viewerEl!: HTMLDivElement;
   let menu = $state<{ x: number; y: number } | null>(null);
   function onContextmenu(e: MouseEvent) {
     e.preventDefault();
     if ((e.target as HTMLElement).tagName === "IMG") return;
-    // The menu is positioned within the surround (absolute, or fixed when
-    // expanded), so place it relative to the surround's own box — not the window
-    // — or it lands offset by the titlebar + header in windowed mode. Clamp so a
-    // right-click near an edge doesn't push the menu under the surround's
-    // overflow:hidden boundary, which narrows when the Inspector insets it.
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const x = Math.min(e.clientX - rect.left, Math.max(0, rect.width - MENU_W));
-    const y = Math.min(e.clientY - rect.top, Math.max(0, rect.height - MENU_H));
+    // The menu renders at the Viewer level (not inside the surround) so it can lie
+    // over the Inspector rather than being clipped at the surround's edge. Place
+    // it relative to the Viewer's own box — not the window, or it lands offset by
+    // the titlebar + header in windowed mode — and clamp so a near-edge right-
+    // click keeps the menu fully on-screen.
+    const box = viewerEl.getBoundingClientRect();
+    const x = Math.min(e.clientX - box.left, Math.max(0, box.width - MENU_W));
+    const y = Math.min(e.clientY - box.top, Math.max(0, box.height - MENU_H));
     menu = { x, y };
   }
   function closeMenu() {
@@ -248,7 +249,7 @@
     { token: "grey", label: "Grey" },
   ];
 
-  // Approximate menu footprint, used only to clamp it inside the surround on a
+  // Approximate menu footprint, used only to clamp it inside the Viewer on a
   // near-edge right-click. Width tracks the .menu min-width (9rem); height covers
   // the three backdrop rows plus padding. Overshooting just nudges the menu in.
   const MENU_W = 160;
@@ -267,6 +268,7 @@
   aria-modal="true"
   tabindex="-1"
   aria-label={image ? `Viewing ${image.name}` : "Image viewer"}
+  bind:this={viewerEl}
 >
   <!-- The surround: the image column, filled with the persisted Backdrop. Bound
        to vw/vh so all fit/zoom/pan math tracks the *visible* image width — which
@@ -339,42 +341,6 @@
         {expanded ? "⤡" : "⤢"}
       </button>
     </div>
-
-    {#if menu}
-      <!-- Click-away catcher closes the menu; sits under it. -->
-      <button
-        class="scrim"
-        type="button"
-        tabindex="-1"
-        aria-hidden="true"
-        onclick={closeMenu}
-        oncontextmenu={(e) => {
-          e.preventDefault();
-          closeMenu();
-        }}
-      ></button>
-      <ul
-        class="menu"
-        role="menu"
-        aria-label="Backdrop"
-        style="left: {menu.x}px; top: {menu.y}px"
-      >
-        {#each BACKDROPS as b (b.token)}
-          <li role="none">
-            <button
-              class="item"
-              type="button"
-              role="menuitemradio"
-              aria-checked={$backdrop === b.token}
-              onclick={() => chooseBackdrop(b.token)}
-            >
-              <span class="check">{$backdrop === b.token ? "✓" : ""}</span>
-              {b.label}
-            </button>
-          </li>
-        {/each}
-      </ul>
-    {/if}
   </div>
 
   <!-- Inspector insets the surround when open; only with a displayable image to
@@ -382,6 +348,44 @@
        compiler narrows `image` to non-null for the prop — same condition. -->
   {#if $inspectorOpen && image && !failed}
     <Inspector {image} />
+  {/if}
+
+  <!-- Backdrop menu sits at the Viewer level so it can render over the Inspector
+       column rather than being clipped at the surround's overflow:hidden edge. -->
+  {#if menu}
+    <!-- Click-away catcher closes the menu; sits under it. -->
+    <button
+      class="scrim"
+      type="button"
+      tabindex="-1"
+      aria-hidden="true"
+      onclick={closeMenu}
+      oncontextmenu={(e) => {
+        e.preventDefault();
+        closeMenu();
+      }}
+    ></button>
+    <ul
+      class="menu"
+      role="menu"
+      aria-label="Backdrop"
+      style="left: {menu.x}px; top: {menu.y}px"
+    >
+      {#each BACKDROPS as b (b.token)}
+        <li role="none">
+          <button
+            class="item"
+            type="button"
+            role="menuitemradio"
+            aria-checked={$backdrop === b.token}
+            onclick={() => chooseBackdrop(b.token)}
+          >
+            <span class="check">{$backdrop === b.token ? "✓" : ""}</span>
+            {b.label}
+          </button>
+        </li>
+      {/each}
+    </ul>
   {/if}
 </div>
 
@@ -404,7 +408,8 @@
   }
 
   /* The image column. Flexes into whatever the Inspector leaves; positioned so
-     the image, controls, and backdrop menu lay out against it (not the row). */
+     the image and controls lay out against it (the backdrop menu lays out
+     against the Viewer instead, so it can overlay the Inspector). */
   .surround {
     position: relative;
     flex: 1 1 auto;

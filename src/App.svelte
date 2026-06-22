@@ -120,6 +120,10 @@
     gap: 1rem;
     padding: 0.5rem 1rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    /* Chrome, not content: the bar's labels (path, photographer name) shouldn't
+       be selectable like body text. -webkit- for the macOS WKWebView. */
+    -webkit-user-select: none;
+    user-select: none;
   }
 
   .path {

@@ -5,10 +5,27 @@ the bottom under "Resolved".
 
 ## Open
 
-### BG Colour tooltip obscured
-Sometimes the tooltip is obscured by the inspector bar; it should show over it
+### 1. Window not draggable when image maximised
+
+### 2. in the 1px border between menubar and main view (in single image view), the photographer grid is visible through the gap
 
 ## Resolved
+
+### BG Colour (backdrop) menu clipped by the Inspector
+*Found: Slice 6 (Inspector shell). Resolved: Slice 6.*
+
+The right-click backdrop ("BG Colour") menu rendered inside the image surround,
+which clips overflow. With the Inspector open, a menu opened near the surround's
+right edge was cut off at the Inspector column instead of showing over it. Moved
+the menu (and its click-away scrim) up to the Viewer level so it lays out against
+the Viewer box and renders over the Inspector, clamped to stay on-screen.
+
+### Menubar text is highlightable
+*Found: Slice 6 (Inspector shell). Resolved: Slice 6.*
+
+The header bar's labels (root path, photographer name) could be drag-selected
+like body text. Added `user-select: none` (with `-webkit-` for the macOS
+WKWebView) to `.bar` so the chrome behaves like chrome.
 
 ### Window is not draggable
 *Found: Slice 1 (skeleton). Resolved: Slice 1.*
