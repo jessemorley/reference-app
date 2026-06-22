@@ -183,10 +183,19 @@ history — `Slice N` / `Merge slice N` commits; these markers mirror it.)
 - **Done when:** open / zoom (⌘±, ⌘0) / pan / arrow-through (wrapping) / escape all
   work; backdrop sticks across relaunch; expand toggles.
 
-### 6. Inspector shell ⬜
+### 6. Inspector shell ✅
 - Right-hand glass panel, single toggle (button + shortcut), state remembered.
-- Lays out three regions: readout, palette bar, histogram (empty stubs for now).
-- Compute-on-open wiring (calls land in 7–9).
+  Viewer-bound: only renders while a Reference image is open, but the shown-state
+  is a durable global preference (`prefs.inspectorOpen`, default closed). Toggle
+  is the control-cluster button + ⌘I (matches Preview). Insets the surround (its
+  own column) rather than floating, so the whole image stays hoverable for the
+  Slice-7 eyedropper and the fit math tracks the shrunk `vw` for free.
+- Lays out three regions, top to bottom **readout → histogram → palette** (the
+  two eyedropper-coupled tools adjacent), empty stubs for now.
+- Compute-on-open wiring: `Inspector.svelte` renders only when open and unmounts
+  on close, so an `image.path`-keyed `$effect` with a cancellation flag *is* the
+  trigger (fires on open + on paging to a new image). Slices 8–9 fill the
+  `recompute` seam; debounce on rapid paging deferred to when real compute lands.
 - **Done when:** panel toggles, remembers open/closed across launches.
 
 ### 7. Eyedropper ⬜  *(Canvas, ADR-0001)*

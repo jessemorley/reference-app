@@ -39,6 +39,13 @@ opening a Reference image, and paged left/right through the images of the active
 filter tab.
 _Avoid_: lightbox, modal, preview.
 
+**Inspector**:
+The panel of analysis tools for the open Reference image, shown alongside the
+Viewer. Hosts the Eyedropper readout, the Colour-scheme extractor's palette bar,
+and the histogram. Bound to the Viewer — it only exists while an image is open —
+but whether it is shown is a durable, global preference.
+_Avoid_: panel, sidebar, analysis pane.
+
 **Eyedropper**:
 The hover tool that reports the pixel under the cursor as R, G, B and L (luminosity,
 ITU-R BT.709). Runs locally against a canvas for zero-latency readout.
