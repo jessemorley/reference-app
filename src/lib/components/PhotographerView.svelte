@@ -91,7 +91,7 @@
     <p class="state">No images in this photographer's folder.</p>
   {:else}
     {#if tabs.length > 0}
-      <nav class="tabs" aria-label="Categories">
+      <nav class="tabs" class:occluded={openIndex !== null} aria-label="Categories">
         {#each tabs as t (t.key)}
           <button
             class="tab"
@@ -106,7 +106,7 @@
       </nav>
     {/if}
 
-    <div class="scroller">
+    <div class="scroller" class:occluded={openIndex !== null}>
       <ul class="grid" style="--tile-min: {$settings.photographer}px">
         {#each shown as img, i (img.path)}
           <li class="cell">
@@ -147,6 +147,15 @@
     padding: 2rem;
     text-align: center;
     color: var(--fg-dim);
+  }
+
+  /* While the Viewer overlay is open it fully covers the content region, so the
+     grid (and tabs) behind it are hidden. Without this, a thumbnail row could
+     bleed through the 1px sub-pixel seam at the header/content boundary. Kept in
+     layout (visibility, not display) so the scroll position is preserved when the
+     Viewer closes. */
+  .occluded {
+    visibility: hidden;
   }
 
   .tabs {

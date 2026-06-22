@@ -7,9 +7,17 @@ the bottom under "Resolved".
 
 ### 1. Window not draggable when image maximised
 
-### 2. in the 1px border between menubar and main view (in single image view), the photographer grid is visible through the gap
-
 ## Resolved
+
+### Photographer grid bleeds through the header/viewer seam
+*Found: Slice 6 (Inspector shell). Resolved: Slice 6.*
+
+In single-image view, a 1px sliver of the photographer grid was visible through
+the sub-pixel seam between the menubar and the content region. The grid sits
+directly behind the Viewer overlay (both fill `.view`), so at a fractional-pixel
+boundary a thumbnail row bled through. Hid the grid and tabs behind the open
+Viewer with `visibility: hidden` (kept in layout so scroll position survives),
+so the occluded content isn't painted and can't leak.
 
 ### BG Colour (backdrop) menu clipped by the Inspector
 *Found: Slice 6 (Inspector shell). Resolved: Slice 6.*
