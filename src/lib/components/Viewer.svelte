@@ -44,7 +44,14 @@
   let vw = $state(0);
   let vh = $state(0);
 
-  let image = $derived(images[index]);
+  // Clamp the incoming index to the current set. The parent's `index` can briefly
+  // outrun `images` when the active-tab set shrinks while the viewer is open
+  // (`images` is the active tab's `shown`, derived from a global store); an
+  // out-of-range index would render a blank overlay. Paging re-syncs the parent.
+  let safeIndex = $derived(
+    images.length === 0 ? 0 : Math.min(Math.max(index, 0), images.length - 1)
+  );
+  let image = $derived(images[safeIndex]);
   let src = $derived(image ? assetUrl(image.path) : null);
 
   // Per-load state. `natural` is a fresh object each load so the fit effect
@@ -54,6 +61,10 @@
   let failed = $state(false);
   let transform = $state<Transform>({ scale: 1, tx: 0, ty: 0 });
 
+  // Fit scale for the current image+viewport, derived once so the hot pan path
+  // (zoomedIn, drag/scroll) doesn't recompute it on every transform mutation.
+  let fit = $derived(natural ? fitScale({ width: vw, height: vh }, natural) : 1);
+
   // Reset the load lifecycle whenever the source changes (paging / reopen).
   $effect(() => {
     src; // track
@@ -62,14 +73,20 @@
     failed = false;
   });
 
+  // Snap the transform to a centred fit. Shared by the auto-fit effect (instant,
+  // on image/viewport change) and ⌘0 (eased).
+  function refit(animate: boolean) {
+    if (!natural || vw === 0 || vh === 0) return;
+    animateZoom = animate;
+    transform = fitTransform(viewport(), natural);
+  }
+
   // Fit fresh whenever the image or the viewport changes — paging resets the
   // transform, and a resize/expand refits rather than stranding an off-screen
-  // zoom. Doesn't read `transform`, so zoom/pan mutations don't re-trigger it.
-  // Refit is instant (no zoom easing) so a new image doesn't slide into place.
+  // zoom. Reads natural/vw/vh (not `transform`), so zoom/pan mutations don't
+  // re-trigger it. Instant (no easing) so a new image doesn't slide into place.
   $effect(() => {
-    if (!natural || vw === 0 || vh === 0) return;
-    animateZoom = false;
-    transform = fitTransform({ width: vw, height: vh }, natural);
+    refit(false);
   });
 
   function onImgLoad(e: Event) {
@@ -84,16 +101,13 @@
 
   function zoom(factor: number) {
     if (!natural || vw === 0 || vh === 0) return;
-    const fit = fitScale(viewport(), natural);
     const t = zoomToward(transform, { x: vw / 2, y: vh / 2 }, factor, fit);
     animateZoom = true;
     transform = clampPan(t, viewport(), natural);
   }
 
   function resetZoom() {
-    if (!natural) return;
-    animateZoom = true;
-    transform = fitTransform(viewport(), natural);
+    refit(true);
   }
 
   function panBy(dx: number, dy: number) {
@@ -106,12 +120,10 @@
     );
   }
 
-  let zoomedIn = $derived(
-    natural !== null && transform.scale > fitScale(viewport(), natural) + 1e-6
-  );
+  let zoomedIn = $derived(natural !== null && transform.scale > fit + 1e-6);
 
   function page(delta: number) {
-    onpage(wrapIndex(index + delta, images.length));
+    onpage(wrapIndex(safeIndex + delta, images.length));
   }
 
   function onKeydown(e: KeyboardEvent) {
@@ -122,6 +134,9 @@
       else onclose();
       return;
     }
+    // With the backdrop menu open, swallow paging/zoom so the keys don't act on
+    // the image behind it (Escape above closes the menu first).
+    if (menu) return;
     if (e.key === "ArrowRight") {
       e.preventDefault();
       page(1);

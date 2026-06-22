@@ -85,14 +85,16 @@ export function assetUrl(path: string): string {
   return convertFileSrc(path);
 }
 
+const BACKDROP_KEY = "prefs.backdrop";
+
 /** The persisted Backdrop token, or null if never set (caller applies its
  *  default). The token — not a hex — is stored so the palette can be retuned
  *  without migrating saved values. */
 export function getBackdrop(): Promise<string | null> {
-  return invoke<string | null>("get_setting", { key: "prefs.backdrop" });
+  return invoke<string | null>("get_setting", { key: BACKDROP_KEY });
 }
 
 /** Persist the Backdrop token (`"black" | "white" | "grey"`). */
 export function setBackdrop(token: string): Promise<void> {
-  return invoke("set_setting", { key: "prefs.backdrop", value: token });
+  return invoke("set_setting", { key: BACKDROP_KEY, value: token });
 }
