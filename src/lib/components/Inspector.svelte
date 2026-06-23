@@ -9,7 +9,7 @@
   // stubs for now.
   import type { Histogram as HistogramData, RefImage, Swatch } from "../types";
   import { reading } from "../stores/eyedropper";
-  import { paletteK } from "../stores/settings";
+  import { paletteK, PALETTE_K_MIN, PALETTE_K_MAX } from "../stores/settings";
   import { computeHistogram, extractPalette, setPaletteK } from "../ipc";
   import { CHANNELS } from "../analysis/draw-histogram";
   import Histogram from "./Histogram.svelte";
@@ -88,6 +88,15 @@
       clearTimeout(timer);
     };
   });
+
+  // Step the palette colour-count by ±1, clamped to the valid range, and persist.
+  function stepK(delta: number) {
+    const next = Math.min(PALETTE_K_MAX, Math.max(PALETTE_K_MIN, $paletteK + delta));
+    if (next !== $paletteK) {
+      paletteK.set(next);
+      void setPaletteK(next);
+    }
+  }
 </script>
 
 <aside class="inspector" aria-label="Inspector">
@@ -117,18 +126,26 @@
   <section class="region">
     <div class="region-head">
       <h2 class="label">Palette</h2>
-      <label class="k">
-        Colours
-        <select
-          bind:value={$paletteK}
-          onchange={() => setPaletteK($paletteK)}
-          aria-label="Number of palette colours"
+      <div class="k">
+        <span class="k-label">Colours</span>
+        <button
+          class="step"
+          onclick={() => stepK(-1)}
+          disabled={$paletteK <= PALETTE_K_MIN}
+          aria-label="Fewer palette colours"
         >
-          {#each [3, 4, 5, 6, 7, 8] as n (n)}
-            <option value={n}>{n}</option>
-          {/each}
-        </select>
-      </label>
+          −
+        </button>
+        <span class="k-value" aria-live="polite">{$paletteK}</span>
+        <button
+          class="step"
+          onclick={() => stepK(1)}
+          disabled={$paletteK >= PALETTE_K_MAX}
+          aria-label="More palette colours"
+        >
+          +
+        </button>
+      </div>
     </div>
     <PaletteBar {palette} status={paletteStatus} />
   </section>
@@ -160,7 +177,7 @@
     gap: 0.5rem;
   }
 
-  /* Region header with an inline control (the palette's colour-count select)
+  /* Region header with an inline control (the palette's colour-count stepper)
      pushed to the right of the label. */
   .region-head {
     display: flex;
@@ -168,22 +185,48 @@
     justify-content: space-between;
   }
 
+  /* Colour-count stepper: a label, then − / value / + in a compact cluster. */
   .k {
     display: flex;
     align-items: center;
     gap: 0.4rem;
+  }
+  .k-label {
     font-size: 0.7rem;
     letter-spacing: 0.04em;
     text-transform: uppercase;
     color: var(--fg-dim);
   }
-  .k select {
-    font: inherit;
+  .k-value {
+    min-width: 1ch;
+    text-align: center;
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--fg);
+  }
+
+  /* Small square +/- buttons; the glyph is centred and the hit area stays tidy. */
+  .step {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.3rem;
+    height: 1.3rem;
+    padding: 0;
+    font-size: 0.95rem;
+    line-height: 1;
     color: var(--fg);
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 0.3rem;
-    padding: 0.1rem 0.3rem;
+    cursor: pointer;
+  }
+  .step:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12);
+  }
+  .step:disabled {
+    opacity: 0.35;
+    cursor: default;
   }
 
   .label {
