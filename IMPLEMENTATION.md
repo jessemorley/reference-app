@@ -253,7 +253,7 @@ history — `Slice N` / `Merge slice N` commits; these markers mirror it.)
   and a real `getImageData` read returns non-tainted pixels on an asset-protocol
   image.
 
-### 8. Histogram ⬜  *(Rust compute, Canvas draw)*
+### 8. Histogram ✅  *(Rust compute, Canvas draw)*
 - `compute_histogram` returns 256-bin r/g/b/l arrays (one decode pass). L channel
   uses the exact ADR-0003 luma formula so the hover line lines up with the readout.
 - `Histogram.svelte`: **all four channels shown at once, no toggle** —
