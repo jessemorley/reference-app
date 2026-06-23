@@ -7,11 +7,12 @@
   // over the image, so the whole image stays hoverable for the Slice-7
   // eyedropper. Lays out three regions — readout, histogram, palette — as inert
   // stubs for now.
-  import type { Histogram as HistogramData, RefImage } from "../types";
+  import type { Histogram as HistogramData, RefImage, Swatch } from "../types";
   import { reading } from "../stores/eyedropper";
-  import { computeHistogram } from "../ipc";
+  import { computeHistogram, extractPalette } from "../ipc";
   import { CHANNELS } from "../analysis/draw-histogram";
   import Histogram from "./Histogram.svelte";
+  import PaletteBar from "./PaletteBar.svelte";
 
   let { image }: { image: RefImage } = $props();
 
@@ -22,13 +23,19 @@
   let histogram = $state<HistogramData | null>(null);
   let histogramStatus = $state<"loading" | "ready" | "unavailable">("loading");
 
+  // Palette swatch count (Slice 9), 3–8, default 5. Changing it recomputes the
+  // palette (its $effect depends on `k`) without touching the histogram.
+  let k = $state(5);
+  let palette = $state<Swatch[] | null>(null);
+  let paletteStatus = $state<"loading" | "ready" | "unavailable">("loading");
+
   // Compute-on-open seam. Re-runs whenever the open image changes — on mount
   // (Inspector opened for this image) and on every page to a new image while
   // open. Clears to the loading state immediately, then debounces the Rust call
   // so rapid paging doesn't spawn a decode per image; the `cancelled` flag drops
   // a stale result when paging outruns an in-flight call (the same pattern
-  // PhotographerView uses for list_images). Slice 9's extract_palette joins here.
-  // Slice 7's eyedropper is local canvas work and doesn't go through this seam.
+  // PhotographerView uses for list_images). Slice 7's eyedropper is local canvas
+  // work and doesn't go through this seam.
   $effect(() => {
     const path = image.path;
     histogram = null;
@@ -45,6 +52,33 @@
         // Decode failure (HEIC/AVIF, or a broken file) — show the unavailable
         // state; the eyedropper readout above still works.
         if (!cancelled) histogramStatus = "unavailable";
+      }
+    }, COMPUTE_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  });
+
+  // Palette (Slice 9) has its own seam: it depends on `k` as well as the image,
+  // so a separate $effect lets changing k recompute the palette alone without
+  // re-decoding for the histogram. Same debounce / cancellation / unavailable
+  // handling as above (one decode-failure path per tool).
+  $effect(() => {
+    const path = image.path;
+    const kk = k;
+    palette = null;
+    paletteStatus = "loading";
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const result = await extractPalette(path, kk);
+        if (!cancelled) {
+          palette = result;
+          paletteStatus = "ready";
+        }
+      } catch {
+        if (!cancelled) paletteStatus = "unavailable";
       }
     }, COMPUTE_DEBOUNCE_MS);
     return () => {
@@ -79,8 +113,18 @@
     <Histogram {histogram} status={histogramStatus} />
   </section>
   <section class="region">
-    <h2 class="label">Palette</h2>
-    <div class="stub palette" aria-hidden="true"></div>
+    <div class="region-head">
+      <h2 class="label">Palette</h2>
+      <label class="k">
+        Colours
+        <select bind:value={k} aria-label="Number of palette colours">
+          {#each [3, 4, 5, 6, 7, 8] as n (n)}
+            <option value={n}>{n}</option>
+          {/each}
+        </select>
+      </label>
+    </div>
+    <PaletteBar {palette} status={paletteStatus} />
   </section>
 </aside>
 
@@ -110,6 +154,32 @@
     gap: 0.5rem;
   }
 
+  /* Region header with an inline control (the palette's colour-count select)
+     pushed to the right of the label. */
+  .region-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .k {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--fg-dim);
+  }
+  .k select {
+    font: inherit;
+    color: var(--fg);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0.3rem;
+    padding: 0.1rem 0.3rem;
+  }
+
   .label {
     margin: 0;
     font-size: 0.7rem;
@@ -117,12 +187,6 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--fg-dim);
-  }
-
-  .stub {
-    margin: 0;
-    color: var(--fg-dim);
-    font-size: 0.85rem;
   }
 
   /* Live readout on one row: a small colour chip beside the four channel values.
@@ -169,13 +233,5 @@
      histogram strokes); L stays neutral. */
   .channels .l {
     color: var(--fg);
-  }
-
-  /* Empty placeholder so the layout reads true before the palette tool lands. */
-  .stub.palette {
-    height: 2.5rem;
-    border: 1px dashed rgba(255, 255, 255, 0.12);
-    border-radius: 0.4rem;
-    background: rgba(255, 255, 255, 0.03);
   }
 </style>

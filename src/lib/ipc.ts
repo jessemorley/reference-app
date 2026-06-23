@@ -2,7 +2,7 @@
 // Add a wrapper here as each backend command lands in its slice.
 
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
-import type { Category, Histogram, Photographer, RefImage } from "./types";
+import type { Category, Histogram, Photographer, RefImage, Swatch } from "./types";
 import type { TileView } from "./stores/settings";
 
 /** Open the folder picker; persists and returns the chosen Photography Root,
@@ -91,6 +91,14 @@ export function assetUrl(path: string): string {
  *  them natively; the Inspector renders an "unavailable" state on rejection. */
 export function computeHistogram(path: string): Promise<Histogram> {
   return invoke<Histogram>("compute_histogram", { imgPath: path });
+}
+
+/** Up to `k` dominant colours for the image at `path` (k-means in CIELAB,
+ *  Slice 9), sorted by weight desc. `k` is clamped to 3..8 in Rust. Rejects on
+ *  the same decode failures as `computeHistogram` (HEIC/AVIF & broken files →
+ *  Inspector "unavailable" state). */
+export function extractPalette(path: string, k: number): Promise<Swatch[]> {
+  return invoke<Swatch[]>("extract_palette", { imgPath: path, k });
 }
 
 const BACKDROP_KEY = "prefs.backdrop";
