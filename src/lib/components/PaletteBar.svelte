@@ -97,7 +97,9 @@
 
   .segment {
     flex: 1 1 0;
-    min-width: 0;
+    /* Floor so a tiny-weight swatch (a small accent) stays visible and clickable
+       instead of shrinking to a sliver; flex-grow still scales the rest by weight. */
+    min-width: 1.25rem;
     border: none;
     padding: 0;
     margin: 0;
