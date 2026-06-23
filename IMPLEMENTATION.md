@@ -330,6 +330,95 @@ history — `Slice N` / `Merge slice N` commits; these markers mirror it.)
   Instagram link; a folder without one renders cleanly with no info; editing
   in-app persists to the hidden file and survives relaunch.
 
+### 12. Vectorscope ⬜  *(Rust compute, Canvas draw — sibling of Slice 8)*
+A chroma scope for the Inspector: the same shape of feature as the histogram (a
+whole-image batch pass in Rust per ADR-0001, drawn on a Canvas in the web layer),
+but a **2D** density over the colour plane instead of four 1D channels.
+Conceptually it belongs beside the histogram in the 7–9 analysis block; it's
+numbered 12 only so the existing `Slice N` commit markers keep their meaning.
+- **Chroma space:** Rec. 709 **Cb/Cr** — reuse the exact luma weights already in
+  `analysis.rs` (`luma`, ADR-0003) so the scope agrees with the histogram L and the
+  eyedropper. `Cb = (B − Y)/1.8556`, `Cr = (R − Y)/1.5748`, each in roughly
+  −0.5..0.5; map to the unit square, drop anything outside the inscribed circle.
+- **`compute_vectorscope(imgPath) -> Vectorscope`** (new free fn + thin
+  `#[tauri::command]`, same blocking-pool decode pattern as `compute_histogram`).
+  Returns a single **128×128** row-major `Vec<u32>` density grid (`{ size: 128,
+  grid: number[] }` — 16 KB over IPC, plenty for ~1080p references; 256 was 256 KB
+  for no visible gain). Pure `vectorscope(&RgbImage)` is the unit-tested seam.
+- **`Vectorscope.svelte`** (mirrors `Histogram.svelte`): square canvas, DPR-sized,
+  near-black `#141414` plot. Draw each non-empty cell at its (Cb,Cr) position,
+  **tinted with the colour that chroma actually represents** (reconstruct an RGB at
+  mid-luma from the cell's Cb/Cr) and **brightness ∝ density on a sqrt/log scale**
+  (chroma density spans orders of magnitude — a linear scale shows only the few
+  hottest cells). Neutral greys pile at the centre, saturated colour pushes to the
+  rim. The pure density→pixel shaping lives in `draw-vectorscope.ts` and is tested;
+  the canvas/IPC wiring stays untested glue (Slice-5/7/8 pattern).
+- **Graticule:** just the bounding **circle** + a faint centre cross. Skin-tone
+  line and the six colour-target boxes (R/G/B/C/M/Y) are deferred — add them if the
+  bare scope reads ambiguous.
+- **Hover:** plot the eyedropper's current pixel as a small **amber crosshair** at
+  its Cb/Cr (read the same `reading` store the histogram's hover line uses), so
+  hovering the image shows where that pixel sits on the wheel. Hidden when `reading`
+  is `null`.
+- **Paging / states:** joins `Inspector.svelte`'s existing compute-on-open
+  `$effect` — run alongside `computeHistogram` in the same debounced, cancellable
+  call (one decode-failure path drives both). Add a fourth Inspector region
+  ("Vectorscope") below the palette, with the same loading / ready / **unavailable**
+  (HEIC/AVIF & decode failures) states as the histogram.
+- **Wiring:** add `Vectorscope` to `types.ts` and a `computeVectorscope` wrapper to
+  `ipc.ts`; register the command in `lib.rs`; add the `compute_vectorscope` line to
+  the IPC-contract section above.
+- **Testing:** Rust — grid sums to pixel count; a solid neutral grey lands a single
+  hot cell at the centre; a saturated primary lands off-centre toward the rim. JS —
+  pure density→brightness shaping in `draw-vectorscope.ts`.
+- **Done when:** the scope matches the image (neutral images stay centred, saturated
+  ones spread to the rim with correct hues), the hover crosshair tracks the
+  eyedropper, and HEIC/AVIF show the unavailable state without breaking the readout.
+
+### 13. Waveform (luma) ⬜  *(Rust compute, Canvas draw — sibling of Slice 8)*
+A luma waveform for the Inspector: per-image-**column** value distribution, the
+exposure-across-the-frame scope. Same ADR-0001 split as the histogram/vectorscope
+(one Rust decode pass → grid → Canvas draw, joins the Inspector compute seam).
+Unlike the other two scopes its **x-axis is spatial** — left of the plot = left of
+the image — so a bright region's horizontal position is preserved.
+- **`compute_waveform(imgPath) -> Waveform`** (new free fn + thin
+  `#[tauri::command]`, blocking-pool decode like `compute_histogram`). For each
+  pixel: x → its column **binned down to a fixed 256-wide** display axis, y → its
+  ADR-0003 luma (reuse `analysis.rs::luma` so it agrees with the histogram L /
+  eyedropper). Returns a constant **256×256** row-major `Vec<u32>` density grid
+  (`{ size: 256, grid: number[] }`) regardless of image size — column binning keeps
+  the payload constant (~256 KB; fine for ~1080p). Pure `waveform(&RgbImage)` is the
+  tested seam.
+- **`Waveform.svelte`** (mirrors `Histogram.svelte`): canvas, DPR-sized, near-black
+  `#141414` plot, value **0 at the bottom, 255 at the top**. Draw each non-empty
+  cell as a neutral white/grey dot with **brightness ∝ density on a sqrt/log scale**
+  (column density spans orders of magnitude — linear shows only the hottest cells).
+  Trace colour stays a tuning knob in `draw-waveform.ts` (classic scopes are green;
+  default neutral to match the chrome). Faint grid: horizontal quarters (value),
+  no vertical lines (x is continuous image space). Pure density→brightness shaping
+  lives in `draw-waveform.ts` and is tested; canvas/IPC wiring is untested glue.
+- **Hover:** the one extra wiring touch — the `eyedropper` store's `Reading`
+  currently carries only `{r,g,b,l}`, no position, so a column marker needs a
+  **normalised source `x` (0..1)** added to `Reading`, set in `Viewer.svelte` where
+  the sample is already taken (it has the source pixel). The waveform then draws an
+  **amber vertical line** at that column (mirrors the histogram's hover line, which
+  is vertical-at-L). Hidden when `reading` is `null`. *Lazy alt:* ship without the
+  marker and add `x` later — the scope is useful without it.
+- **Paging / states:** joins `Inspector.svelte`'s compute-on-open `$effect`
+  alongside `computeHistogram`/`computeVectorscope` (one debounced, cancellable call;
+  one decode-failure path). Adds a "Waveform" Inspector region with the same loading
+  / ready / **unavailable** (HEIC/AVIF & decode failures) states.
+- **Wiring:** add `Waveform` to `types.ts`, a `computeWaveform` wrapper to `ipc.ts`,
+  the `x` field to `Reading`, register the command in `lib.rs`, and add
+  `compute_waveform` to the IPC-contract section above.
+- **Testing:** Rust — grid sums to pixel count; a solid mid-grey lands a single hot
+  value-row spanning all columns; a left-half-white / right-half-black image lands
+  density only in the top-left and bottom-right quadrants. JS — pure
+  density→brightness shaping in `draw-waveform.ts`.
+- **Done when:** the waveform tracks exposure across the frame (a bright left edge
+  lifts the left of the trace), the hover line tracks the eyedropper's column, and
+  HEIC/AVIF show the unavailable state without breaking the readout.
+
 ---
 
 ## Deferred (not v1)
