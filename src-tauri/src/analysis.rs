@@ -91,6 +91,23 @@ const CHROMA_BOOST: f64 = 3.0;
 /// the weight is capped so a few neon edge pixels can't dominate the palette.
 const CHROMA_REF: f64 = 80.0;
 
+/// How hard the *merge* distance (`merge_dist2`) folds shades of one hue together.
+/// 0 = plain Lab Euclidean; 1 = pure hue for fully-saturated colours, so a bright
+/// and a dark red (same hue, different lightness *and* saturation) fuse into one
+/// swatch — freeing a `k` slot for a distinct hue like a blue accent. The fold is
+/// scaled by saturation, so neutrals (black/grey/white, differing only in
+/// lightness) are *not* folded and stay separate. See pallette3/pallette4.
+const SHADE_FOLD: f64 = 0.85;
+
+/// Over-segmentation factor: k-means runs with `k·OVERSEG` clusters, then the
+/// closest pairs are agglomeratively merged back down to `k` (see `palette`).
+/// k-means alone can't merge two seeds, so a salient highlight keeps its own
+/// slot away from the body of the same object; over-segment-then-merge collapses
+/// such near-duplicate shades first (two reds → one) while distinct hues, being
+/// far apart, survive the merge — so the `k` swatches are genuinely different
+/// colours, not shades of a few.
+const PALETTE_OVERSEG: usize = 4;
+
 /// CIELAB point (D65). Clustering happens here, not in RGB, so swatches split on
 /// *perceptual* colour difference (ADR-0001 / Slice 9 spec).
 type Lab = [f64; 3];
@@ -163,9 +180,34 @@ fn lab_to_rgb([l, a, b]: Lab) -> [u8; 3] {
     [linear_to_srgb(rl), linear_to_srgb(gl), linear_to_srgb(bl)]
 }
 
+/// Plain squared Lab distance — the clustering (seeding + assignment) metric, so
+/// k-means over-segments by lightness too (a highlight and the body of one object
+/// land in *separate* fine clusters). The merge step (`lab_dist2_chroma`) is what
+/// later recombines those shades; here we want them split so there's something to
+/// merge.
 fn lab_dist2(a: Lab, b: Lab) -> f64 {
     let (dl, da, db) = (a[0] - b[0], a[1] - b[1], a[2] - b[2]);
     dl * dl + da * da + db * db
+}
+
+/// Merge-distance between two centroids (`merge_clusters`) that fuses *shades of
+/// one hue* while keeping distinct hues — and distinct neutrals — apart. Splits
+/// the Lab gap into lightness (ΔL), chroma-magnitude (ΔC) and hue (ΔH, via
+/// `ΔH² = Δa²+Δb²−ΔC²`) parts, then shrinks ΔL and ΔC by `SHADE_FOLD` *scaled by
+/// saturation*: for a saturated pair (two reds) lightness and saturation barely
+/// count, so same-hue shades are the closest pair and merge first; for neutrals
+/// (black/grey/white, ~0 chroma) nothing is folded, so they separate by ΔL as
+/// usual. Hue always counts full, so different colours never merge.
+fn merge_dist2(a: Lab, b: Lab) -> f64 {
+    let dl = a[0] - b[0];
+    let (da, db) = (a[1] - b[1], a[2] - b[2]);
+    let ca = (a[1] * a[1] + a[2] * a[2]).sqrt();
+    let cb = (b[1] * b[1] + b[2] * b[2]).sqrt();
+    let dc = ca - cb;
+    let dh2 = (da * da + db * db - dc * dc).max(0.0); // ΔH² (clamp float noise ≥0)
+    let sat = ((ca + cb) * 0.5 / CHROMA_REF).min(1.0); // 0 neutral .. 1 saturated
+    let fold = 1.0 - SHADE_FOLD * sat;
+    fold * dl * dl + fold * dc * dc + dh2
 }
 
 /// Perceptual salience weight for a Lab pixel: `1 + boost·chroma`. Chroma
@@ -225,6 +267,39 @@ fn seed_centroids(points: &[Lab], weights: &[f64], k: usize) -> Vec<Lab> {
     centroids
 }
 
+/// Agglomeratively merge `(centroid, weight)` clusters down to at most `k` by
+/// repeatedly fusing the closest pair (hue-aware `merge_dist2`). The fused
+/// centroid is the weight-weighted mean (i.e. still the salience-weighted mean of
+/// the underlying pixels), weights add. Closest-first ordering means redundant
+/// shades collapse before distinct hues do. O(m³) but m = k·OVERSEG ≤ 32.
+fn merge_clusters(mut clusters: Vec<(Lab, f64)>, k: usize) -> Vec<(Lab, f64)> {
+    while clusters.len() > k {
+        let (mut bi, mut bj, mut bd) = (0, 1, f64::INFINITY);
+        for i in 0..clusters.len() {
+            for j in (i + 1)..clusters.len() {
+                let d = merge_dist2(clusters[i].0, clusters[j].0);
+                if d < bd {
+                    bd = d;
+                    bi = i;
+                    bj = j;
+                }
+            }
+        }
+        let (cj, wj) = clusters.remove(bj);
+        let (ci, wi) = clusters[bi];
+        let w = wi + wj;
+        clusters[bi] = (
+            [
+                (ci[0] * wi + cj[0] * wj) / w,
+                (ci[1] * wi + cj[1] * wj) / w,
+                (ci[2] * wi + cj[2] * wj) / w,
+            ],
+            w,
+        );
+    }
+    clusters
+}
+
 /// Cluster `img`'s pixels into at most `k` perceptual swatches (k-means in
 /// CIELAB), returned sorted by weight desc with empty clusters dropped. Pixels
 /// are salience-weighted (see `salience`): a vivid pixel pulls more on both the
@@ -242,7 +317,10 @@ fn palette(img: &image::RgbImage, k: usize) -> Vec<Swatch> {
     }
     let weights: Vec<f64> = points.iter().map(|&p| salience(p)).collect();
 
-    let mut centroids = seed_centroids(&points, &weights, k.min(n));
+    // Over-segment, then merge back to k (below) so redundant shades collapse
+    // before distinct hues. k-means alone can't merge two seeds.
+    let fine_k = (k * PALETTE_OVERSEG).min(n);
+    let mut centroids = seed_centroids(&points, &weights, fine_k);
     let mut assign = vec![0usize; n];
 
     for _ in 0..KMEANS_MAX_ITERS {
@@ -286,17 +364,24 @@ fn palette(img: &image::RgbImage, k: usize) -> Vec<Swatch> {
         }
     }
 
-    // Final salience-weighted cluster totals → swatch shares, dropping empties.
+    // Final salience-weighted totals per fine cluster, dropping empties, then
+    // merge the closest pairs down to k distinct colours.
     let mut wsum = vec![0.0f64; centroids.len()];
     for (i, &c) in assign.iter().enumerate() {
         wsum[c] += weights[i];
     }
-    let total: f64 = wsum.iter().sum();
-    let mut swatches: Vec<Swatch> = centroids
+    let fine: Vec<(Lab, f64)> = centroids
         .iter()
         .zip(&wsum)
         .filter(|(_, &w)| w > 0.0)
-        .map(|(&cen, &w)| {
+        .map(|(&cen, &w)| (cen, w))
+        .collect();
+    let merged = merge_clusters(fine, k);
+
+    let total: f64 = merged.iter().map(|&(_, w)| w).sum();
+    let mut swatches: Vec<Swatch> = merged
+        .into_iter()
+        .map(|(cen, w)| {
             let [r, g, b] = lab_to_rgb(cen);
             Swatch {
                 hex: format!("#{r:02x}{g:02x}{b:02x}"),
@@ -452,5 +537,42 @@ mod tests {
             .iter()
             .find(|s| s.b > 120 && s.b as i32 > s.r as i32 + 40 && s.b as i32 > s.g as i32 + 40);
         assert!(blue.is_some(), "isolated blue accent present: {p:?}");
+    }
+
+    #[test]
+    fn two_shades_of_one_hue_collapse_freeing_a_slot_for_a_distinct_hue() {
+        // The pallette3 case: a region in two shades of red (same hue, different
+        // lightness) should be ONE swatch, not two, so a small distinct hue (blue)
+        // still fits within k. Chroma-primary distance (L_WEIGHT < 1) folds the
+        // shades together; full-weight L would seed both reds before reaching blue.
+        let mut img = RgbImage::new(30, 30);
+        let paint = |img: &mut RgbImage, rows: std::ops::Range<u32>, c: [u8; 3]| {
+            for y in rows {
+                for x in 0..30 {
+                    img.put_pixel(x, y, Rgb(c));
+                }
+            }
+        };
+        paint(&mut img, 0..5, [210, 45, 40]); // bright red \ same hue,
+        paint(&mut img, 5..10, [120, 28, 25]); // dark red    / two shades
+        paint(&mut img, 10..18, [235, 228, 210]); // cream
+        paint(&mut img, 18..25, [40, 38, 38]); // faded black
+        paint(&mut img, 25..30, [150, 110, 75]); // light brown
+        for y in 0..3 {
+            for x in 0..3 {
+                img.put_pixel(x, y, Rgb([40, 55, 150])); // tiny blue accent
+            }
+        }
+
+        let p = palette(&img, 5);
+        let reds = p
+            .iter()
+            .filter(|s| s.r as i32 > s.g as i32 + 40 && s.r as i32 > s.b as i32 + 40)
+            .count();
+        assert_eq!(reds, 1, "the two red shades are one swatch, not two: {p:?}");
+        let blue = p
+            .iter()
+            .find(|s| s.b > 120 && s.b as i32 > s.r as i32 + 30 && s.b as i32 > s.g as i32 + 30);
+        assert!(blue.is_some(), "blue still fits at k=5: {p:?}");
     }
 }

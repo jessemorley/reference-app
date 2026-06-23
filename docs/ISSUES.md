@@ -7,6 +7,35 @@ the bottom under "Resolved".
 
 ### 1. Window not draggable when image maximised
 
+## Todo
+
+### Root view
+- Hide folder location; instead show forward/back buttons (Also replace the "< Photographers" button from Photographer view)
+  
+### Colour Palette
+- Automatically-select number of colours for pallette, with plus minus buttons instead of dropdown to add/reduce
+- Set min width for pallette sections at 15px
+- Add button to show palette anchor points on the image which can be dragged to new values by the user
+- Add option to show palette on colour wheel
+
+### Photographer View
+- Add button to open folder in finder
+
+### Inspector Panel
+- Make inspector panel resizable (max width 550px)
+
+### Value
+- Allow click to freeze Value values and add a new live value row on top ()
+- Add hex value inside swatch square (make rounded rectangle to fit)
+
+### Image-size slider
+- Hide on single-image view
+- Restyle to match slider-example.png
+
+### Histogram
+- Change from three-column grid overlay to four
+- Add outline colour to luma area
+
 ## Resolved
 
 ### Photographer grid bleeds through the header/viewer seam

@@ -317,6 +317,15 @@ history — `Slice N` / `Merge slice N` commits; these markers mirror it.)
   chromatically-isolated regions, where probability-proportional k-means++ could
   skip a small hue-isolated accent on an unlucky draw — the blue lid/necklace in
   `screenshots/pallette3.png`/`pallette4.png` that earlier seeding missed.
+- **Over-segment then merge for distinct colours** (`PALETTE_OVERSEG`,
+  `merge_clusters`, `merge_dist2`, `SHADE_FOLD`): k-means runs with `k·OVERSEG`
+  clusters (k-means can't merge two seeds, so a highlight keeps its own slot from
+  the body of one object), then the closest pairs are agglomeratively merged back
+  to `k`. The merge metric is **hue-aware**: it splits the Lab gap into ΔL / ΔC
+  (chroma magnitude) / ΔH (hue) and folds ΔL+ΔC for *saturated* pairs (so a bright
+  and a dark red — same hue — fuse) while leaving neutrals (black/grey/white,
+  ~0 chroma) unfolded so they stay distinct. So the `k` swatches are genuinely
+  different colours, not two/three shades of one — the pallette3 teapot reds.
 - `PaletteBar.svelte`: single proportional bar, segment `flex-grow` = weight. Click
   a segment copies its hex (`navigator.clipboard`, brief "copied" flash); hover /
   focus reveals hex/RGB/L (`L` via the shared `luminance`) + % below the bar; wide
