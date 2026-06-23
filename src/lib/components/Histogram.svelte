@@ -7,7 +7,7 @@
   // readout above still works).
   import { reading } from "../stores/eyedropper";
   import type { Histogram } from "../types";
-  import { drawHistogram } from "../analysis/draw-histogram";
+  import { drawHistogram, prepare } from "../analysis/draw-histogram";
 
   let {
     histogram,
@@ -16,22 +16,30 @@
 
   let canvas = $state<HTMLCanvasElement>();
 
+  // Smooth the channels once per histogram (not per hover frame) — only the
+  // hover line moves between frames, the curves don't.
+  let prepared = $derived(histogram ? prepare(histogram) : null);
+
   // Redraw on histogram change and on every eyedropper move (the hover line).
-  // Backs the canvas store with the device pixel ratio so the 1px lines stay
-  // crisp on Retina, then draws in CSS px.
+  // Sizes the backing store to the device pixel ratio so the 1px lines stay crisp
+  // on Retina, then draws in CSS px. Only reassigns canvas.width/height when the
+  // dimensions actually change — reassigning reallocates the bitmap, so guarding
+  // it avoids a needless realloc on every hover frame (drawHistogram clears).
   $effect(() => {
     const r = $reading;
-    const hist = histogram;
-    if (status !== "ready" || !hist || !canvas) return;
+    const p = prepared;
+    if (status !== "ready" || !p || !canvas) return;
     const dpr = window.devicePixelRatio || 1;
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
-    canvas.width = Math.round(w * dpr);
-    canvas.height = Math.round(h * dpr);
+    const dw = Math.round(w * dpr);
+    const dh = Math.round(h * dpr);
+    if (canvas.width !== dw) canvas.width = dw;
+    if (canvas.height !== dh) canvas.height = dh;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    drawHistogram(ctx, hist, w, h, r);
+    drawHistogram(ctx, p, w, h, r);
   });
 </script>
 

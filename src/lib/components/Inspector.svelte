@@ -10,6 +10,7 @@
   import type { Histogram as HistogramData, RefImage } from "../types";
   import { reading } from "../stores/eyedropper";
   import { computeHistogram } from "../ipc";
+  import { CHANNELS } from "../analysis/draw-histogram";
   import Histogram from "./Histogram.svelte";
 
   let { image }: { image: RefImage } = $props();
@@ -66,9 +67,9 @@
         aria-hidden="true"
       ></span>
       <div class="channels">
-        <span class="r">{$reading?.r ?? " "}</span>
-        <span class="g">{$reading?.g ?? " "}</span>
-        <span class="b">{$reading?.b ?? " "}</span>
+        <span style="color: {CHANNELS.r}">{$reading?.r ?? " "}</span>
+        <span style="color: {CHANNELS.g}">{$reading?.g ?? " "}</span>
+        <span style="color: {CHANNELS.b}">{$reading?.b ?? " "}</span>
         <span class="l">{$reading?.l ?? " "}</span>
       </div>
     </div>
@@ -164,15 +165,8 @@
     text-align: center;
   }
 
-  .channels .r {
-    color: #ff6b6b;
-  }
-  .channels .g {
-    color: #51cf66;
-  }
-  .channels .b {
-    color: #5c9dff;
-  }
+  /* R/G/B values are tinted inline from CHANNELS (single source, shared with the
+     histogram strokes); L stays neutral. */
   .channels .l {
     color: var(--fg);
   }

@@ -3,16 +3,18 @@
 // Slice-5/7 pattern). Lightroom/Capture One-style look (see
 // screenshots/captureone_hist.png): a filled grey L envelope with thin
 // translucent R/G/B strokes on top, plus an amber hover line at the eyedropper's
-// L value. A compressed (power-curve) vertical scale + light smoothing make the
-// distribution *shape* read instead of one shadow spike dominating (raw linear
-// walls the clipped bin-0/255 spikes — the Photoshop look in
-// screenshots/our_hist.png; full log over-flattens to the C1 look).
+// L value. A linear vertical scale (SCALE_EXPONENT, matching Photoshop) + light
+// smoothing: smoothing de-jags per-bin noise, while the linear scale keeps sparse
+// dark/bright tails at the floor so the curves lift only where real density is.
+// Lowering the exponent compresses peaks toward the Capture One look (see below).
 
 import type { Histogram } from "../types";
 import type { Reading } from "../stores/eyedropper";
 
-// Channel stroke colours match the eyedropper readout (Inspector.svelte).
-const CHANNELS = { r: "#ff6b6b", g: "#51cf66", b: "#5c9dff" };
+/** Per-channel identity colours — the single source shared by the histogram
+ *  strokes here and the eyedropper readout values (Inspector.svelte imports
+ *  this), so the two can't drift apart. */
+export const CHANNELS = { r: "#ff6b6b", g: "#51cf66", b: "#5c9dff" };
 const L_FILL = "rgba(255, 255, 255, 0.22)"; // grey luminosity envelope
 const HOVER = "#ffa233"; // amber, visible over both the grey fill and white peaks
 const BG = "#141414"; // near-black plot, darker than the #1e1e1e inspector chrome
@@ -55,6 +57,19 @@ export function peak(channels: number[][]): number {
   return Math.max(1, m);
 }
 
+/** Smoothed channels + their shared full-height max — the expensive shaping,
+ *  pulled out so it's computed once per histogram (a `$derived`) rather than on
+ *  every hover frame, since only the hover line moves between frames. Pure. */
+export type Prepared = { r: number[]; g: number[]; b: number[]; l: number[]; max: number };
+
+export function prepare(hist: Histogram): Prepared {
+  const r = smooth(hist.r);
+  const g = smooth(hist.g);
+  const b = smooth(hist.b);
+  const l = smooth(hist.l);
+  return { r, g, b, l, max: peak([r, g, b, l]) };
+}
+
 function channelPath(
   ctx: CanvasRenderingContext2D,
   bins: number[],
@@ -70,12 +85,12 @@ function channelPath(
   });
 }
 
-/** Draw the four-channel histogram into `ctx` (sized `w`×`h` in CSS px). Caller
- *  has already applied any device-pixel-ratio transform. `reading` null ⇒ no
- *  hover line. */
+/** Draw the four-channel histogram into `ctx` (sized `w`×`h` in CSS px) from
+ *  pre-smoothed channels (`prepare`). Caller has already applied any
+ *  device-pixel-ratio transform. `reading` null ⇒ no hover line. */
 export function drawHistogram(
   ctx: CanvasRenderingContext2D,
-  hist: Histogram,
+  prepared: Prepared,
   w: number,
   h: number,
   reading: Reading | null
@@ -100,12 +115,9 @@ export function drawHistogram(
   }
   ctx.stroke();
 
-  // Smooth each channel, then scale to a shared max with the √ curve.
-  const r = smooth(hist.r);
-  const g = smooth(hist.g);
-  const b = smooth(hist.b);
-  const l = smooth(hist.l);
-  const max = peak([r, g, b, l]);
+  // Channels are already smoothed (prepare); map bin→x and count→y (linear at
+  // SCALE_EXPONENT 1.0, normalised to the shared max).
+  const { r, g, b, l, max } = prepared;
   const xOf = (bin: number) => (bin / 255) * w;
   const yOf = (count: number) => h - Math.pow(Math.min(count / max, 1), SCALE_EXPONENT) * h;
 
