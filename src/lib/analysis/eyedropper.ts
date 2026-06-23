@@ -23,7 +23,7 @@ export function luminance(r: number, g: number, b: number): number {
 export function samplingCanvasSize(natural: Size, maxArea = MAX_CANVAS_AREA): Size {
   const area = natural.width * natural.height;
   if (area <= 0) return { width: 1, height: 1 };
-  if (area <= maxArea) return { width: natural.width, height: natural.height };
+  if (area <= maxArea) return natural;
   const factor = Math.sqrt(maxArea / area);
   return {
     width: Math.max(1, Math.floor(natural.width * factor)),

@@ -2,6 +2,7 @@ use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_store::StoreExt;
 
+mod analysis;
 mod scan;
 mod thumbs;
 
@@ -100,7 +101,8 @@ pub fn run() {
             set_setting,
             scan::list_photographers,
             scan::list_images,
-            thumbs::ensure_thumb
+            thumbs::ensure_thumb,
+            analysis::compute_histogram
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

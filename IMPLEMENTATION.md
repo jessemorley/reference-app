@@ -158,7 +158,7 @@ history — `Slice N` / `Merge slice N` commits; these markers mirror it.)
 - Tabs filter the grid; track active tab in a navigation store.
 - **Done when:** clicking a photographer shows all their images, tabs filter correctly.
 
-### 5. Viewer ⬜
+### 5. Viewer ✅
 - Click an image → Viewer overlay, full-res via asset protocol
   (`convertFileSrc` on the original path; the Root is already in the asset scope,
   `lib.rs` `allow_root_assets`). The overlay covers the **content region** (below
@@ -208,7 +208,7 @@ history — `Slice N` / `Merge slice N` commits; these markers mirror it.)
   `recompute` seam; debounce on rapid paging deferred to when real compute lands.
 - **Done when:** panel toggles, remembers open/closed across launches.
 
-### 7. Eyedropper ⬜  *(Canvas, ADR-0001)*
+### 7. Eyedropper ✅  *(Canvas, ADR-0001)*
 - **Pixel source:** a *separate* hidden `<img crossOrigin="anonymous">` per open
   image (not the display `<img>`), drawn once into a sampling `<canvas>` and then
   released — the display image is left untouched so a CORS misstep can't regress
@@ -254,10 +254,48 @@ history — `Slice N` / `Merge slice N` commits; these markers mirror it.)
   image.
 
 ### 8. Histogram ⬜  *(Rust compute, Canvas draw)*
-- `compute_histogram` returns 256-bin r/g/b/l arrays (one decode pass).
-- `Histogram.svelte`: RGB channels overlaid (lighten/screen blend) + a luminosity
-  toggle; linear scale. Live vertical line follows the eyedropper's hovered value.
-- **Done when:** histogram matches the image, toggle works, hover line tracks.
+- `compute_histogram` returns 256-bin r/g/b/l arrays (one decode pass). L channel
+  uses the exact ADR-0003 luma formula so the hover line lines up with the readout.
+- `Histogram.svelte`: **all four channels shown at once, no toggle** —
+  Lightroom-style (see `screenshots/histogram_example.png`). **L is the filled
+  layer**: a soft grey area = the luminosity envelope. **R/G/B are thin translucent
+  line strokes on top**, additively blended (screen/lighten) so they read white
+  where all three overlap (the peaks). Near-black plot area (darker than the
+  `#1e1e1e` inspector chrome), very faint grid lines (vertical thirds / horizontal
+  quarters), no axis labels (the reference's ISO/shutter/f-stop row is Lightroom
+  EXIF — we have no equivalent).
+- **Vertical scale:** **linear** (`SCALE_EXPONENT = 1.0`), normalised to the shared
+  max across all four channels, after a light **5-tap smoothing** pass.
+  **Photoshop is the source of truth** (`screenshots/newhist/photoshop.png`): a
+  linear scale keeps sparse dark/bright tails at the floor, so the luma curve lifts
+  only where real density is rather than climbing from the very edge. Compressing
+  the scale (the `<1` exponents we explored for the Capture One look —
+  `captureoneone_hist1.png`) amplifies those sparse-but-real tails into visible
+  height, which measures wrong against PS. The exponent stays a tuning knob in
+  draw-histogram.ts.
+- **Hover line:** a *single* **amber** vertical line at `reading.l`, marking the
+  hovered pixel on the L envelope (amber stays visible over both the grey fill and
+  the white overlap peaks — matches the reference). Hidden when `reading` is
+  `null`. Not three per-channel ticks — one line, one value (luma), one code path.
+- **Blend:** grey L area drawn first (source-over), then the three R/G/B strokes
+  with `globalCompositeOperation = "screen"` (or `"lighten"`) so overlaps go white.
+- **HEIC/AVIF & any decode failure:** `compute_histogram` errors (the `image`
+  crate can't decode HEIC/AVIF — same asymmetry as viewer/eyedropper, which decode
+  natively in WKWebView). The region shows a quiet "unavailable" empty state (the
+  existing dashed stub); the eyedropper readout above it still works. One empty
+  state covers unsupported-format and corrupt-file alike.
+- **Paging:** the call lands in `Inspector.svelte`'s `recompute` seam. Clear the
+  region to its loading state immediately on image-change, **debounce ~120ms**
+  before firing `compute_histogram` (reset on re-page), and keep the existing
+  cancellation flag to drop stale results. No result cache — recompute on open is
+  fine for ~1080p targets.
+- **Testing:** Rust — bins sum to pixel count, and L matches ADR-0003's formula on
+  a known pixel. JS — pure normalisation (percentile-clip + shared-max → bar
+  heights) in `draw-histogram.ts`. Canvas draw / IPC / toggle wiring stays untested
+  glue (the Slice-5/7 pattern).
+- **Done when:** histogram matches the image (all four channels visible, L legible
+  over RGB), hover line tracks the eyedropper, HEIC/AVIF show the unavailable state
+  without breaking the readout.
 
 ### 9. Colour-scheme extractor ⬜  *(Rust, ADR-0001)*
 - `extract_palette`: decode → downsample (~thumbnail size) → k-means in CIELAB →
