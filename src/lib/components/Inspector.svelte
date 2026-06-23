@@ -9,7 +9,8 @@
   // stubs for now.
   import type { Histogram as HistogramData, RefImage, Swatch } from "../types";
   import { reading } from "../stores/eyedropper";
-  import { computeHistogram, extractPalette } from "../ipc";
+  import { paletteK } from "../stores/settings";
+  import { computeHistogram, extractPalette, setPaletteK } from "../ipc";
   import { CHANNELS } from "../analysis/draw-histogram";
   import Histogram from "./Histogram.svelte";
   import PaletteBar from "./PaletteBar.svelte";
@@ -23,9 +24,10 @@
   let histogram = $state<HistogramData | null>(null);
   let histogramStatus = $state<"loading" | "ready" | "unavailable">("loading");
 
-  // Palette swatch count (Slice 9), 3–8, default 5. Changing it recomputes the
-  // palette (its $effect depends on `k`) without touching the histogram.
-  let k = $state(5);
+  // Palette swatch count (Slice 9), 3–8. A global durable preference (the
+  // Inspector remounts per open/page, so a local value would reset); changing it
+  // recomputes the palette (its $effect depends on `$paletteK`) without touching
+  // the histogram, and persists to the backend store.
   let palette = $state<Swatch[] | null>(null);
   let paletteStatus = $state<"loading" | "ready" | "unavailable">("loading");
 
@@ -66,7 +68,7 @@
   // handling as above (one decode-failure path per tool).
   $effect(() => {
     const path = image.path;
-    const kk = k;
+    const kk = $paletteK;
     palette = null;
     paletteStatus = "loading";
     let cancelled = false;
@@ -117,7 +119,11 @@
       <h2 class="label">Palette</h2>
       <label class="k">
         Colours
-        <select bind:value={k} aria-label="Number of palette colours">
+        <select
+          bind:value={$paletteK}
+          onchange={() => setPaletteK($paletteK)}
+          aria-label="Number of palette colours"
+        >
           {#each [3, 4, 5, 6, 7, 8] as n (n)}
             <option value={n}>{n}</option>
           {/each}

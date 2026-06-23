@@ -128,3 +128,16 @@ export function getInspectorOpen(): Promise<boolean | null> {
 export function setInspectorOpen(open: boolean): Promise<void> {
   return invoke("set_setting", { key: INSPECTOR_OPEN_KEY, value: open });
 }
+
+const PALETTE_K_KEY = "prefs.paletteK";
+
+/** The persisted palette colour-count (Slice 9), or null if never set (caller
+ *  applies its default). */
+export function getPaletteK(): Promise<number | null> {
+  return invoke<number | null>("get_setting", { key: PALETTE_K_KEY });
+}
+
+/** Persist the palette colour-count. */
+export function setPaletteK(k: number): Promise<void> {
+  return invoke("set_setting", { key: PALETTE_K_KEY, value: k });
+}

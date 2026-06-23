@@ -3,6 +3,7 @@
   import {
     getBackdrop,
     getInspectorOpen,
+    getPaletteK,
     getRoot,
     getTileSizes,
     selectRoot,
@@ -15,6 +16,8 @@
     asBackdrop,
     inspectorOpen,
     asInspectorOpen,
+    paletteK,
+    asPaletteK,
   } from "./lib/stores/settings";
   import RootPicker from "./lib/components/RootPicker.svelte";
   import PhotographerGrid from "./lib/components/PhotographerGrid.svelte";
@@ -27,12 +30,13 @@
   onMount(async () => {
     // Hydrate persisted state before first paint of the shell. Tile sizes keep
     // their defaults for any view the user hasn't adjusted yet.
-    const [persistedRoot, tiles, savedBackdrop, savedInspectorOpen] =
+    const [persistedRoot, tiles, savedBackdrop, savedInspectorOpen, savedPaletteK] =
       await Promise.all([
         getRoot(),
         getTileSizes(),
         getBackdrop(),
         getInspectorOpen(),
+        getPaletteK(),
       ]);
     settings.update((s) => ({
       root: tiles.root ?? s.root,
@@ -40,6 +44,7 @@
     }));
     backdrop.set(asBackdrop(savedBackdrop));
     inspectorOpen.set(asInspectorOpen(savedInspectorOpen));
+    paletteK.set(asPaletteK(savedPaletteK));
     root.set(persistedRoot);
     ready = true;
   });
