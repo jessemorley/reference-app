@@ -101,6 +101,10 @@
        instead of shrinking to a sliver; flex-grow still scales the rest by weight. */
     min-width: 1.25rem;
     border: none;
+    /* Square the segments — they're <button>s, so the global button radius
+       (app.css) would round every colour and notch the joins. Only the bar's
+       outer corners are rounded (via .bar's overflow + radius). */
+    border-radius: 0;
     padding: 0;
     margin: 0;
     cursor: pointer;
