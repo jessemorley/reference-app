@@ -230,7 +230,6 @@
   // open — its Colour region is the only readout target (the pure source→canvas
   // map + luma maths live in ../analysis/eyedropper).
   let sampleCtx: CanvasRenderingContext2D | null = null;
-  let sampleSize: { width: number; height: number } | null = null;
 
   // Build (and tear down) the sampling canvas when the Inspector is open and the
   // image is displayable. Re-runs on paging (src) and on toggling the Inspector;
@@ -239,7 +238,6 @@
     reading.set(null);
     if (!$inspectorOpen || !src || !loaded || failed) {
       sampleCtx = null;
-      sampleSize = null;
       return;
     }
     let cancelled = false;
@@ -258,7 +256,6 @@
       if (!ctx) return;
       ctx.drawImage(img, 0, 0, size.width, size.height);
       sampleCtx = ctx;
-      sampleSize = size;
       // Drawn — drop the handler so the decoded source can be freed; the canvas
       // now holds the only copy we need (approach A's extra decode is transient,
       // not held for the open-image lifetime). The cleanup deliberately does NOT
@@ -271,7 +268,6 @@
       cancelAnimationFrame(rafPending);
       rafPending = 0;
       sampleCtx = null;
-      sampleSize = null;
       reading.set(null);
     };
   });
@@ -281,7 +277,7 @@
   let lastPoint: { x: number; y: number } | null = null;
 
   function onSampleMove(e: MouseEvent) {
-    if (!sampleCtx || !sampleSize || !natural) return;
+    if (!sampleCtx || !natural) return;
     const box = (e.currentTarget as HTMLElement).getBoundingClientRect();
     lastPoint = { x: e.clientX - box.left, y: e.clientY - box.top };
     if (!rafPending) rafPending = requestAnimationFrame(sampleNow);
@@ -289,8 +285,8 @@
 
   function sampleNow() {
     rafPending = 0;
-    if (!sampleCtx || !sampleSize || !natural || !lastPoint) return;
-    const at = toCanvasSample(transform, lastPoint, natural, sampleSize);
+    if (!sampleCtx || !natural || !lastPoint) return;
+    const at = toCanvasSample(transform, lastPoint, natural, sampleCtx.canvas);
     if (!at) {
       reading.set(null);
       return;
@@ -307,10 +303,8 @@
   }
 
   function onSampleLeave() {
-    if (rafPending) {
-      cancelAnimationFrame(rafPending);
-      rafPending = 0;
-    }
+    cancelAnimationFrame(rafPending);
+    rafPending = 0;
     lastPoint = null;
     reading.set(null);
   }

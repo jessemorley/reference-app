@@ -7,32 +7,48 @@
   // over the image, so the whole image stays hoverable for the Slice-7
   // eyedropper. Lays out three regions — readout, histogram, palette — as inert
   // stubs for now.
-  import type { RefImage } from "../types";
+  import type { Histogram as HistogramData, RefImage } from "../types";
   import { reading } from "../stores/eyedropper";
+  import { computeHistogram } from "../ipc";
+  import Histogram from "./Histogram.svelte";
 
   let { image }: { image: RefImage } = $props();
 
-  // Compute-on-open seam. The keyed effect below runs this on mount (Inspector
-  // opened for the current image) and again on every page to a different image
-  // while open. Slices 8 (compute_histogram) and 9 (extract_palette) fill it in,
-  // honouring `signal.cancelled` to drop a stale image's result when paging
-  // outruns the in-flight call — the same cancellation pattern PhotographerView
-  // uses for list_images. Slice 7's eyedropper is local canvas work and doesn't
-  // go through here. No-op stub for now.
-  function recompute(_image: RefImage, _signal: { cancelled: boolean }) {
-    // Histogram + palette calls land here in slices 8-9.
-  }
+  // ~120ms: long enough that holding an arrow key down doesn't decode every
+  // image flashed past, short enough to feel instant when you land on one.
+  const COMPUTE_DEBOUNCE_MS = 120;
 
-  // Re-run whenever the open image changes — on mount (Inspector opened for the
-  // current image) and on every page to a new image while open. Passing `image`
-  // to recompute reads the derived, so that read is the tracked dependency; the
-  // cleanup flags the in-flight compute as stale before the next image's run, so
-  // a slow result never lands on the wrong image.
+  let histogram = $state<HistogramData | null>(null);
+  let histogramStatus = $state<"loading" | "ready" | "unavailable">("loading");
+
+  // Compute-on-open seam. Re-runs whenever the open image changes — on mount
+  // (Inspector opened for this image) and on every page to a new image while
+  // open. Clears to the loading state immediately, then debounces the Rust call
+  // so rapid paging doesn't spawn a decode per image; the `cancelled` flag drops
+  // a stale result when paging outruns an in-flight call (the same pattern
+  // PhotographerView uses for list_images). Slice 9's extract_palette joins here.
+  // Slice 7's eyedropper is local canvas work and doesn't go through this seam.
   $effect(() => {
-    const signal = { cancelled: false };
-    recompute(image, signal);
+    const path = image.path;
+    histogram = null;
+    histogramStatus = "loading";
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const result = await computeHistogram(path);
+        if (!cancelled) {
+          histogram = result;
+          histogramStatus = "ready";
+        }
+      } catch {
+        // Decode failure (HEIC/AVIF, or a broken file) — show the unavailable
+        // state; the eyedropper readout above still works.
+        if (!cancelled) histogramStatus = "unavailable";
+      }
+    }, COMPUTE_DEBOUNCE_MS);
     return () => {
-      signal.cancelled = true;
+      cancelled = true;
+      clearTimeout(timer);
     };
   });
 </script>
@@ -59,7 +75,7 @@
   </section>
   <section class="region">
     <h2 class="label">Histogram</h2>
-    <div class="stub histo" aria-hidden="true"></div>
+    <Histogram {histogram} status={histogramStatus} />
   </section>
   <section class="region">
     <h2 class="label">Palette</h2>
@@ -161,19 +177,11 @@
     color: var(--fg);
   }
 
-  /* Empty placeholders so the layout reads true before the tools fill them. */
-  .stub.histo,
+  /* Empty placeholder so the layout reads true before the palette tool lands. */
   .stub.palette {
+    height: 2.5rem;
     border: 1px dashed rgba(255, 255, 255, 0.12);
     border-radius: 0.4rem;
     background: rgba(255, 255, 255, 0.03);
-  }
-
-  .stub.histo {
-    height: 180px;
-  }
-
-  .stub.palette {
-    height: 2.5rem;
   }
 </style>

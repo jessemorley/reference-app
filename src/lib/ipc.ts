@@ -2,7 +2,7 @@
 // Add a wrapper here as each backend command lands in its slice.
 
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
-import type { Category, Photographer, RefImage } from "./types";
+import type { Category, Histogram, Photographer, RefImage } from "./types";
 import type { TileView } from "./stores/settings";
 
 /** Open the folder picker; persists and returns the chosen Photography Root,
@@ -83,6 +83,14 @@ export async function ensureThumb(path: string): Promise<string> {
  *  even though their thumbnails can't (the `image` crate gates only thumbs). */
 export function assetUrl(path: string): string {
   return convertFileSrc(path);
+}
+
+/** 256-bin r/g/b/l histogram for the image at `path`, computed in Rust in one
+ *  decode pass (ADR-0001). Rejects on a decode failure — including HEIC/AVIF,
+ *  which the `image` crate can't decode even though the viewer/eyedropper handle
+ *  them natively; the Inspector renders an "unavailable" state on rejection. */
+export function computeHistogram(path: string): Promise<Histogram> {
+  return invoke<Histogram>("compute_histogram", { imgPath: path });
 }
 
 const BACKDROP_KEY = "prefs.backdrop";
