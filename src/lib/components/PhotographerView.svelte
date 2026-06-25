@@ -13,7 +13,11 @@
     ALL_TAB,
     UNCATEGORISED_TAB,
     refreshSignal,
-    selected,
+    openIndex,
+    openImage,
+    pageImage,
+    closeViewer,
+    goRoot,
   } from "../stores/navigation";
   import { settings } from "../stores/settings";
   import Thumb from "./Thumb.svelte";
@@ -26,9 +30,9 @@
   let images = $state<RefImage[] | null>(null);
   let error = $state<string | null>(null);
 
-  // Index into `shown` of the open image in the Viewer, or null when closed.
-  // Local (not a store): only this subtree and its Viewer child need it (Slice 5).
-  let openIndex = $state<number | null>(null);
+  // Which image is open in the Viewer lives in the navigation history store
+  // (`openIndex`) so the back/forward buttons can open/close it — opening an
+  // image is a third history level below the photographer view.
 
   // The effective cover image and whether it's a user pin — seeded from the
   // photographer prop, updated locally on a set/reset so the tile menu reflects
@@ -49,7 +53,6 @@
     images = null;
     error = null;
     categories = [];
-    openIndex = null; // close any open viewer when the photographer changes
     activeTab.set(ALL_TAB);
     menu = null;
     coverPath = photographer.coverPath;
@@ -111,7 +114,7 @@
       listImages(root, photographer.relPath)
         .then((res) => {
           if (res.images.length === 0) {
-            selected.set(null);
+            goRoot();
             return;
           }
           categories = res.categories;
@@ -167,7 +170,7 @@
     <p class="state">No images in this photographer's folder.</p>
   {:else}
     {#if tabs.length > 0}
-      <nav class="tabs" class:occluded={openIndex !== null} aria-label="Categories">
+      <nav class="tabs" class:occluded={$openIndex !== null} aria-label="Categories">
         {#each tabs as t (t.key)}
           <button
             class="tab"
@@ -182,14 +185,14 @@
       </nav>
     {/if}
 
-    <div class="scroller" class:occluded={openIndex !== null}>
+    <div class="scroller" class:occluded={$openIndex !== null}>
       <ul class="grid" style="--tile-min: {$settings.photographer}px">
         {#each shown as img, i (img.path)}
           <li class="cell">
             <button
               class="open"
               type="button"
-              onclick={() => (openIndex = i)}
+              onclick={() => openImage(i)}
               oncontextmenu={(e) => openMenu(e, img)}
             >
               <Thumb path={img.path} alt={img.name} />
@@ -199,12 +202,12 @@
       </ul>
     </div>
 
-    {#if openIndex !== null}
+    {#if $openIndex !== null}
       <Viewer
         images={shown}
-        index={openIndex}
-        onpage={(i) => (openIndex = i)}
-        onclose={() => (openIndex = null)}
+        index={$openIndex}
+        onpage={(i) => pageImage(i)}
+        onclose={() => closeViewer()}
       />
     {/if}
   {/if}

@@ -11,7 +11,17 @@
     revealInFinder,
   } from "./lib/ipc";
   import { root } from "./lib/stores/root";
-  import { selected, search, refreshSignal } from "./lib/stores/navigation";
+  import {
+    selected,
+    search,
+    refreshSignal,
+    canBack,
+    canForward,
+    back,
+    forward,
+    openPhotographer,
+    resetToRoot,
+  } from "./lib/stores/navigation";
   import {
     settings,
     backdrop,
@@ -22,6 +32,8 @@
     asPaletteK,
   } from "./lib/stores/settings";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
+  import ArrowLeft from "@lucide/svelte/icons/arrow-left";
+  import ArrowRight from "@lucide/svelte/icons/arrow-right";
   import RootPicker from "./lib/components/RootPicker.svelte";
   import PhotographerGrid from "./lib/components/PhotographerGrid.svelte";
   import PhotographerView from "./lib/components/PhotographerView.svelte";
@@ -61,7 +73,7 @@
   async function change() {
     const chosen = await selectRoot();
     if (chosen) {
-      selected.set(null); // close any open photographer view before re-scanning
+      resetToRoot(); // fresh history; closes any open photographer/viewer
       search.set(""); // search is cleared when the folder changes
       root.set(chosen);
     }
@@ -102,13 +114,31 @@
 {:else}
   <div class="shell">
     <header class="bar">
+      <!-- Browser-style history nav, leftmost at every level (root, photographer,
+           viewer). Disabled at the ends of the stack. -->
+      <div class="nav">
+        <button
+          class="nav-btn"
+          onclick={back}
+          disabled={!$canBack}
+          title="Back"
+          aria-label="Back"
+        >
+          <ArrowLeft size={16} aria-hidden="true" />
+        </button>
+        <button
+          class="nav-btn"
+          onclick={forward}
+          disabled={!$canForward}
+          title="Forward"
+          aria-label="Forward"
+        >
+          <ArrowRight size={16} aria-hidden="true" />
+        </button>
+      </div>
+
       {#if $selected}
-        <div class="group">
-          <button class="back" onclick={() => selected.set(null)}
-            >‹ Photographers</button
-          >
-          <span class="path" title={$selected.name}>{$selected.name}</span>
-        </div>
+        <span class="path" title={$selected.name}>{$selected.name}</span>
         <div class="group">
           <button
             title="Reveal this photographer's folder in Finder"
@@ -137,7 +167,7 @@
     {#if $selected}
       <PhotographerView root={$root!} photographer={$selected} />
     {:else}
-      <PhotographerGrid root={$root!} onselect={(p) => selected.set(p)} />
+      <PhotographerGrid root={$root!} onselect={(p) => openPhotographer(p)} />
     {/if}
   </div>
 {/if}
@@ -182,12 +212,38 @@
   }
 
   .path {
+    flex: 1;
+    min-width: 0;
     font-family: ui-monospace, "SF Mono", Menlo, monospace;
     font-size: 0.85rem;
     color: var(--fg-dim);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  /* History back/forward pair, leftmost in the bar. */
+  .nav {
+    flex: none;
+    display: flex;
+    gap: 0.25rem;
+  }
+
+  /* Square icon-only buttons sized to the bar's button height. */
+  .nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.35rem;
+  }
+
+  .nav-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  .nav-btn:disabled:hover {
+    background: rgba(255, 255, 255, 0.08);
   }
 
   /* Size every header button to the search bar (same text size, vertical
@@ -238,10 +294,4 @@
     min-width: 0;
   }
 
-  /* Back affordance reads as a quiet link, not a chunky button. Inherits the
-     .bar button height; only the chrome is stripped back. */
-  .back {
-    background: transparent;
-    border-color: transparent;
-  }
 </style>

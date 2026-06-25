@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/svelte";
 import App from "./App.svelte";
 import { root } from "./lib/stores/root";
-import { selected } from "./lib/stores/navigation";
+import { resetToRoot } from "./lib/stores/navigation";
 
 // App hydrates from getRoot() on mount and opens the picker via selectRoot().
 // Mock the IPC layer so the component's branching is the only thing under test.
@@ -41,8 +41,8 @@ beforeEach(() => {
   vi.mocked(getPaletteK).mockResolvedValue(null);
   // The root store is a module-level singleton; reset it between tests.
   root.set(null);
-  // navigation.selected is likewise module-level; start each test on the grid.
-  selected.set(null);
+  // The navigation history is likewise module-level; start each test on the grid.
+  resetToRoot();
 });
 
 describe("App branching", () => {
@@ -72,9 +72,10 @@ describe("App branching", () => {
 
     render(App);
 
-    expect(
-      await screen.findByText("/Users/me/Photography")
-    ).toBeInTheDocument();
+    // The root path is now the search bar's hover title (it replaced the path
+    // label), so assert on the searchbox rather than visible text.
+    const search = await screen.findByRole("searchbox");
+    expect(search).toHaveAttribute("title", "/Users/me/Photography");
     expect(
       screen.getByRole("button", { name: "Change folder…" })
     ).toBeInTheDocument();
@@ -91,6 +92,9 @@ describe("App branching", () => {
     });
     button.click();
 
-    expect(await screen.findByText("/Users/me/NewRoot")).toBeInTheDocument();
+    const search = await screen.findByRole("searchbox");
+    await vi.waitFor(() =>
+      expect(search).toHaveAttribute("title", "/Users/me/NewRoot")
+    );
   });
 });
