@@ -21,6 +21,7 @@
     paletteK,
     asPaletteK,
   } from "./lib/stores/settings";
+  import FolderOpen from "@lucide/svelte/icons/folder-open";
   import RootPicker from "./lib/components/RootPicker.svelte";
   import PhotographerGrid from "./lib/components/PhotographerGrid.svelte";
   import PhotographerView from "./lib/components/PhotographerView.svelte";
@@ -127,7 +128,9 @@
         />
         <div class="group">
           <TileSizeSlider view="root" />
-          <button onclick={change}>Change folder…</button>
+          <button class="icon-btn" onclick={change}>
+            <FolderOpen size={15} aria-hidden="true" />Change folder…
+          </button>
         </div>
       {/if}
     </header>
@@ -195,6 +198,13 @@
     padding: 0.35rem 0.7rem;
     font-size: 0.85rem;
     border-radius: 0.4rem;
+  }
+
+  /* Icon + label on one baseline-centred row. */
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
   }
 
   .search {
