@@ -8,9 +8,17 @@
     getRoot,
     getTileSizes,
     selectRoot,
+    revealInFinder,
   } from "./lib/ipc";
   import { root } from "./lib/stores/root";
-  import { selected } from "./lib/stores/navigation";
+  import {
+    selected,
+    openIndex,
+    search,
+    refreshSignal,
+    canBack,
+    back,
+  } from "./lib/stores/navigation";
   import {
     settings,
     backdrop,
@@ -20,6 +28,12 @@
     paletteK,
     asPaletteK,
   } from "./lib/stores/settings";
+  import Folder from "@lucide/svelte/icons/folder";
+  import FolderOpen from "@lucide/svelte/icons/folder-open";
+  import House from "@lucide/svelte/icons/house";
+  import Search from "@lucide/svelte/icons/search";
+  import User from "@lucide/svelte/icons/user";
+  import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import RootPicker from "./lib/components/RootPicker.svelte";
   import PhotographerGrid from "./lib/components/PhotographerGrid.svelte";
   import PhotographerView from "./lib/components/PhotographerView.svelte";
@@ -59,11 +73,37 @@
   async function change() {
     const chosen = await selectRoot();
     if (chosen) {
-      selected.set(null); // close any open photographer view before re-scanning
+      selected.set(null); // back to root; closes any open photographer/viewer
+      openIndex.set(null);
+      search.set(""); // search is cleared when the folder changes
       root.set(chosen);
     }
   }
+
+  // ⌘R re-runs the active view's scan in place (the view re-fetches silently —
+  // no "Scanning…" flash). preventDefault stops the webview's own reload.
+  function onKeydown(e: KeyboardEvent) {
+    if (e.metaKey && e.key === "r") {
+      e.preventDefault();
+      refreshSignal.update((n) => n + 1);
+    }
+  }
+
+  // Auto-rescan on focus return, but only after a real absence (>5s) so a quick
+  // tab-away doesn't re-walk the tree. blurAt is null while focused.
+  let blurAt: number | null = null;
+  function onBlur() {
+    blurAt = Date.now();
+  }
+  function onFocus() {
+    if (blurAt !== null && Date.now() - blurAt > 5000) {
+      refreshSignal.update((n) => n + 1);
+      blurAt = null;
+    }
+  }
 </script>
+
+<svelte:window onkeydown={onKeydown} onfocus={onFocus} onblur={onBlur} />
 
 <!-- Stands in for the hidden-inset titlebar; drag anywhere along the top. -->
 <div class="titlebar" data-tauri-drag-region></div>
@@ -74,20 +114,79 @@
   <RootPicker />
 {:else}
   <div class="shell">
-    <header class="bar">
+    <!-- Drag region: the bar's own background/padding/gaps move the window.
+         Tauri only drags on the exact element bearing the attribute, so the
+         buttons and search input (no attribute) stay interactive — only the
+         empty bar area and the name-box label below drag. -->
+    <header class="bar" data-tauri-drag-region>
+      <!-- Back ascends one level (image → grid → root); Home jumps straight to
+           root. Leftmost at every level, both disabled at the root. -->
+      <div class="nav">
+        <button
+          class="nav-btn"
+          onclick={back}
+          disabled={!$canBack}
+          title="Back"
+          aria-label="Back"
+        >
+          <ArrowLeft size={16} aria-hidden="true" />
+        </button>
+        <button
+          class="nav-btn"
+          onclick={() => {
+            selected.set(null);
+            openIndex.set(null);
+          }}
+          disabled={!$canBack}
+          title="Home"
+          aria-label="Home"
+        >
+          <House size={16} aria-hidden="true" />
+        </button>
+      </div>
+
       {#if $selected}
-        <div class="group">
-          <button class="back" onclick={() => selected.set(null)}
-            >‹ Photographers</button
+        <div class="search-wrap">
+          <User class="search-icon" size={15} aria-hidden="true" />
+          <span class="name-box" title={$selected.name} data-tauri-drag-region
+            >{$selected.name}</span
           >
-          <span class="path" title={$selected.name}>{$selected.name}</span>
         </div>
-        <TileSizeSlider view="photographer" />
-      {:else}
-        <span class="path" title={$root}>{$root}</span>
         <div class="group">
+          <button
+            class="icon-btn"
+            title="Reveal this photographer's folder in Finder"
+            aria-label="Reveal this photographer's folder in Finder"
+            onclick={() => revealInFinder(`${$root}/${$selected!.relPath}`).catch(() => {})}
+          >
+            <FolderOpen size={15} aria-hidden="true" />
+          </button>
+          {#if $openIndex === null}
+            <TileSizeSlider view="photographer" />
+          {/if}
+        </div>
+      {:else}
+        <div class="search-wrap">
+          <Search class="search-icon" size={15} aria-hidden="true" />
+          <input
+            class="search"
+            type="search"
+            placeholder="Search photographers…"
+            aria-label="Search photographers"
+            title={$root}
+            bind:value={$search}
+          />
+        </div>
+        <div class="group">
+          <button
+            class="icon-btn"
+            onclick={change}
+            title="Change folder…"
+            aria-label="Change folder…"
+          >
+            <Folder size={15} aria-hidden="true" />
+          </button>
           <TileSizeSlider view="root" />
-          <button onclick={change}>Change folder…</button>
         </div>
       {/if}
     </header>
@@ -129,7 +228,10 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
+    /* Even gap so the nav buttons and the search/path read as one evenly
+       spaced cluster (matches .nav's inter-button gap); .group restores the
+       wider spacing on its side. */
+    gap: 0.5rem;
     padding: 0.5rem 1rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     /* Chrome, not content: the bar's labels (path, photographer name) shouldn't
@@ -138,17 +240,99 @@
     user-select: none;
   }
 
-  .path {
-    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  /* Photographer name, boxed to read like the search bar it replaces at this
+     level (same border/background/radius, User icon in place of the magnifier).
+     A static span, not an input — it's a label, not a field. */
+  .name-box {
+    flex: 1;
+    min-width: 0;
+    /* Left padding clears the icon; matches .search. */
+    padding: 0.35rem 0.6rem 0.35rem 1.85rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0.4rem;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--fg);
     font-size: 0.85rem;
-    color: var(--fg-dim);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
+  /* Back button, leftmost in the bar. */
+  .nav {
+    flex: none;
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  /* Square icon-only buttons sized to the bar's button height. */
+  .nav-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.35rem;
+  }
+
+  .nav-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+
+  /* Size every header button to the search bar (same text size, vertical
+     padding and radius), so the bar reads as one row of equal-height controls.
+     1px border matches the search input's, so the box heights line up. */
   .bar button {
     flex: none;
+    padding: 0.35rem 0.7rem;
+    font-size: 0.85rem;
+    border-radius: 0.4rem;
+  }
+
+  /* Icon + label on one baseline-centred row. */
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  /* Wraps the input so the search icon can sit inside its left edge. */
+  .search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+  }
+
+  .search-wrap :global(.search-icon) {
+    position: absolute;
+    left: 0.6rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--fg-dim);
+    pointer-events: none;
+  }
+
+  .search {
+    flex: 1;
+    min-width: 0;
+    /* Left padding clears the icon. */
+    padding: 0.35rem 0.6rem 0.35rem 1.85rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0.4rem;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--fg);
+    font: inherit;
+    font-size: 0.85rem;
+  }
+
+  .search::placeholder {
+    color: var(--fg-dim);
+  }
+
+  .search:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
   }
 
   /* Keeps related header items together so .bar's space-between still pushes
@@ -161,10 +345,4 @@
     min-width: 0;
   }
 
-  /* Back affordance reads as a quiet link, not a chunky button. */
-  .back {
-    background: transparent;
-    border-color: transparent;
-    padding: 0.55rem 0.6rem;
-  }
 </style>

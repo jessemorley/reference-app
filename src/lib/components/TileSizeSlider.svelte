@@ -12,6 +12,8 @@
     type TileView,
   } from "../stores/settings";
   import { setTileSize } from "../ipc";
+  import ZoomOut from "@lucide/svelte/icons/zoom-out";
+  import ZoomIn from "@lucide/svelte/icons/zoom-in";
 
   let { view }: { view: TileView } = $props();
 
@@ -26,7 +28,7 @@
 </script>
 
 <label class="tile-size" title="Tile size">
-  <span class="glyph small" aria-hidden="true"></span>
+  <ZoomOut size={15} aria-hidden="true" />
   <input
     type="range"
     min={TILE_MIN_PX}
@@ -37,7 +39,7 @@
     oninput={onInput}
     onchange={onChange}
   />
-  <span class="glyph large" aria-hidden="true"></span>
+  <ZoomIn size={15} aria-hidden="true" />
 </label>
 
 <style>
@@ -46,24 +48,8 @@
     align-items: center;
     gap: 0.45rem;
     flex: none;
-  }
-
-  /* Small/large square glyphs flank the range as a size affordance. */
-  .glyph {
-    display: block;
-    border: 1.5px solid var(--fg-dim);
-    border-radius: 2px;
-    flex: none;
-  }
-
-  .glyph.small {
-    width: 8px;
-    height: 10px;
-  }
-
-  .glyph.large {
-    width: 13px;
-    height: 16px;
+    /* Zoom-out / zoom-in icons flanking the range as a size affordance. */
+    color: var(--fg-dim);
   }
 
   input[type="range"] {

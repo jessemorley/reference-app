@@ -19,6 +19,7 @@
         "minHeight": 600,
         "titleBarStyle": "Overlay",
         "hiddenTitle": true,
+        "trafficLightPosition": { "x": 15, "y": 26 },
         "theme": "Dark",
         "windowEffects": {
           "effects": ["underWindowBackground"],

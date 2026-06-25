@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/svelte";
+import { render, screen, fireEvent } from "@testing-library/svelte";
 import PhotographerView from "./PhotographerView.svelte";
 import { activeTab, ALL_TAB } from "../stores/navigation";
 import type { Photographer, RefImage } from "../types";
@@ -11,13 +11,16 @@ import type { Photographer, RefImage } from "../types";
 vi.mock("../ipc", () => ({
   listImages: vi.fn(),
   ensureThumb: vi.fn(),
+  setCover: vi.fn(),
+  revealInFinder: vi.fn(),
 }));
-import { listImages, ensureThumb } from "../ipc";
+import { listImages, ensureThumb, setCover } from "../ipc";
 
 const ANSEL: Photographer = {
   name: "Ansel",
   relPath: "Ansel",
   coverPath: "/r/Ansel/loose.jpg",
+  pinned: false,
 };
 
 beforeEach(() => {
@@ -121,6 +124,36 @@ describe("PhotographerView", () => {
     expect(
       await screen.findByText("No images in this photographer's folder.")
     ).toBeInTheDocument();
+  });
+
+  it("right-click cover menu is state-aware and pins/resets the cover", async () => {
+    const images: RefImage[] = [
+      { name: "loose.jpg", path: "/r/Ansel/loose.jpg", category: null },
+      { name: "p1.jpg", path: "/r/Ansel/p1.jpg", category: null },
+    ];
+    vi.mocked(listImages).mockResolvedValue({ categories: [], images });
+    // Ansel's cover is pinned to p1.jpg.
+    const pinned = { ...ANSEL, coverPath: "/r/Ansel/p1.jpg", pinned: true };
+
+    render(PhotographerView, { root: "/r", photographer: pinned });
+    const p1 = (await screen.findByAltText("p1.jpg")).closest("button")!;
+    const loose = screen.getByAltText("loose.jpg").closest("button")!;
+
+    // The pinned tile offers a reset.
+    await fireEvent.contextMenu(p1);
+    expect(screen.getByText("Reset to default cover")).toBeInTheDocument();
+
+    // A different tile offers "Set as cover"; clicking it pins that image.
+    await fireEvent.contextMenu(loose);
+    const setItem = screen.getByText("Set as cover");
+    setItem.click();
+    expect(setCover).toHaveBeenCalledWith("Ansel", "/r/Ansel/loose.jpg");
+
+    // loose.jpg is now the pinned cover, so its menu offers a reset.
+    await fireEvent.contextMenu(loose);
+    const resetItem = screen.getByText("Reset to default cover");
+    resetItem.click();
+    expect(setCover).toHaveBeenCalledWith("Ansel", null);
   });
 
   it("surfaces a read error", async () => {

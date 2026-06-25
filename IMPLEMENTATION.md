@@ -74,6 +74,8 @@ type Photographer = {
   relPath: string;        // relative to Root — the pin key (ADR-0002)
   coverPath: string | null;   // absolute path of the cover image; the tile
                               // thumbnails it on demand via ensureThumb (Slice 3)
+  pinned: boolean;        // coverPath is a user pin vs. alphabetical default
+                          // (Slice 10) — drives the tile menu's state
 };
 
 type Category = { name: string; count: number };  // "Uncategorised" is synthetic
@@ -95,15 +97,18 @@ Tauri commands:
 ```
 select_root() -> string | null                 // dialog, persists to store
 get_root() -> string | null
-list_photographers(root) -> Photographer[]      // hides empty folders
+list_photographers(root) -> Photographer[]      // hides empty folders; cover = pinned image
+                                                // (if still on disk) else first alphabetically
 list_images(root, photographerRelPath) -> { categories: Category[], images: RefImage[] }
                                                 // root + relPath joined in Rust
 ensure_thumb(imgPath) -> string                 // returns cached thumb URL, generates if missing
 compute_histogram(imgPath) -> Histogram
 extract_palette(imgPath, k) -> Swatch[]         // k in 3..8, default 5, sorted by weight desc
-set_cover(photographerRelPath, imgPath)         // store
-get_cover(photographerRelPath) -> string | null
-reveal_in_finder(path)
+set_cover(photographerRelPath, imgPath | null)  // null clears the pin (reset to default).
+                                                // Pins live in the settings store (ADR-0002);
+                                                // list_photographers resolves them, so there is
+                                                // no separate get_cover — the grid never asks.
+reveal_in_finder(path)                          // file or folder; tauri-plugin-opener
 ```
 
 ---
@@ -339,13 +344,36 @@ history — `Slice N` / `Merge slice N` commits; these markers mirror it.)
 - **Done when:** palette reads true to the image, bar is proportional, copy works,
   changing k recomputes instantly.
 
-### 10. Polish ⬜
-- Cover pinning: pin action in Viewer / image context menu → `set_cover`; grid
-  reflects it. (Pins keyed by relative path — ADR-0002.)
-- Photographer search filters the root grid by name.
-- Reveal-in-Finder context action on tiles and in Viewer.
-- Refresh: ⌘R re-scans; also rescan-on-window-focus.
-- **Done when:** pin/search/reveal/refresh all work end to end.
+### 10. Polish ✅
+Four independent quality-of-life features. Pins keyed by relative path (ADR-0002).
+
+- **Cover pinning.** `set_cover(relPath, imgPath | null)` writes a `covers` map
+  into `settings.json`; `list_photographers` gains the `app` handle and resolves
+  the cover itself — pinned image if it still exists on disk, else `find_cover`
+  (first alphabetically). The pin override is the only place "what is the cover"
+  is decided, so there's no separate `get_cover`. Action lives in a **state-aware
+  right-click menu on photographer-view image tiles**: "Set as cover" on a normal
+  tile, "Reset to default cover" on the currently-pinned tile (passes `null`),
+  "Current cover" (disabled) on the un-pinned alphabetical default. No persistent
+  cover badge — state shows only in the menu.
+- **Photographer search.** An always-visible search field in the root header.
+  Live case-insensitive substring match on photographer name, filtered
+  client-side over the already-loaded list (no IPC). "No photographers match…"
+  empty state; cleared when the folder changes.
+- **Reveal in Finder.** `reveal_in_finder(path)` (tauri-plugin-opener). Two
+  surfaces: the image-tile right-click menu (shares the cover menu) reveals the
+  **image file**; an in-window button in the photographer-view header reveals the
+  **photographer folder**. No Viewer action, no root-grid tile menu.
+- **Refresh.** ⌘R re-runs the current view's scan in place (stay in the open
+  photographer, preserve scroll; the "Scanning…" state is first-load only so an
+  unchanged rescan is silent). Auto-rescan on window focus **only when the window
+  was unfocused > ~5s** (debounced — don't walk the tree on a quick tab-away).
+  The thumb cache self-heals via its `hash(path+mtime+size)` key, so no
+  invalidation step. If the open photographer's folder vanished during a rescan,
+  fall back to the root grid.
+- **Done when:** pinning sets/resets a tile's cover and survives relaunch; search
+  filters the grid live; reveal opens Finder on the right file/folder from both
+  surfaces; ⌘R and a >5s focus return both reflect on-disk adds/edits/deletes.
 
 ### 11. Photographer info ⬜
 - Per-photographer metadata: Instagram link + short blurb. Stored in a hidden

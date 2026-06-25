@@ -23,6 +23,11 @@ pub struct Photographer {
     /// Absolute path of the cover image. `None` only if the folder somehow has
     /// no readable image (such folders are skipped before reaching here).
     pub cover: Option<String>,
+    /// Whether `cover` came from a user pin (vs. the alphabetical default). The
+    /// tile right-click menu reads this to show "Reset to default" vs "Current
+    /// cover" (Slice 10). Always `false` out of `scan_photographers`; the
+    /// `list_photographers` command flips it when it applies a pin.
+    pub pinned: bool,
 }
 
 /// Image file extensions we surface as Reference images (matched
@@ -123,6 +128,7 @@ pub fn scan_photographers(root: &Path) -> Vec<Photographer> {
                 name: name.into_owned(),
                 rel_path,
                 cover: Some(cover.to_string_lossy().into_owned()),
+                pinned: false,
             })
         })
         .collect();
@@ -135,10 +141,39 @@ pub fn scan_photographers(root: &Path) -> Vec<Photographer> {
 /// walk is blocking, so it runs on the blocking pool via `spawn_blocking`
 /// rather than tying up an async worker (see agent memory: blocking work in a
 /// command stalls the UI).
+///
+/// Cover pins (ADR-0002) are resolved here — the only place "what is the cover"
+/// is decided: a pinned image still on disk wins, otherwise the alphabetical
+/// default `scan_photographers` found. Pins are read off the central store
+/// before the blocking walk (so `app` isn't moved into the closure).
 #[tauri::command]
-pub async fn list_photographers(root: String) -> Vec<Photographer> {
-    tauri::async_runtime::spawn_blocking(move || scan_photographers(Path::new(&root)))
-        .await
+pub async fn list_photographers(app: tauri::AppHandle, root: String) -> Vec<Photographer> {
+    let pins = read_cover_pins(&app);
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut photographers = scan_photographers(Path::new(&root));
+        for p in &mut photographers {
+            if let Some(pinned) = pins.get(&p.rel_path) {
+                // A pin whose image was deleted/moved falls back to the default.
+                if Path::new(pinned).is_file() {
+                    p.cover = Some(pinned.clone());
+                    p.pinned = true;
+                }
+            }
+        }
+        photographers
+    })
+    .await
+    .unwrap_or_default()
+}
+
+/// The `relPath -> absolute cover path` pin map from the central store, empty if
+/// unset or malformed.
+fn read_cover_pins(app: &tauri::AppHandle) -> std::collections::HashMap<String, String> {
+    use tauri_plugin_store::StoreExt;
+    app.store(crate::STORE_FILE)
+        .ok()
+        .and_then(|s| s.get(crate::COVERS_KEY))
+        .and_then(|v| serde_json::from_value(v).ok())
         .unwrap_or_default()
 }
 

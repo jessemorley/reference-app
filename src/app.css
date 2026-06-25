@@ -19,6 +19,17 @@ body,
   margin: 0;
   background: transparent;
   color: var(--fg);
+  /* App chrome, not a document: nothing should be drag-selectable like body
+     text (this is a native-feeling viewer). Form fields opt back in below. */
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Text inputs stay selectable/editable despite the global lock. */
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /* Fixed-height app shell: titlebar row sized to content, everything below it

@@ -46,6 +46,7 @@ type PhotographerRow = {
   name: string;
   relPath: string;
   cover: string | null;
+  pinned: boolean;
 };
 
 /** Photographers directly under `root` that hold at least one image (empty
@@ -57,7 +58,20 @@ export async function listPhotographers(root: string): Promise<Photographer[]> {
     name: r.name,
     relPath: r.relPath,
     coverPath: r.cover,
+    pinned: r.pinned,
   }));
+}
+
+/** Pin a Photographer's cover to `imgPath`, or pass `null` to clear the pin
+ *  (reset to the alphabetical default). Keyed by the folder's relative path
+ *  (ADR-0002); the change shows on the next `listPhotographers`. */
+export function setCover(relPath: string, imgPath: string | null): Promise<void> {
+  return invoke("set_cover", { relPath, imgPath });
+}
+
+/** Reveal a file or folder in Finder (selecting it in its parent). */
+export function revealInFinder(path: string): Promise<void> {
+  return invoke("reveal_in_finder", { path });
 }
 
 /** One Photographer's Reference images, flattened, plus the real Category tabs.

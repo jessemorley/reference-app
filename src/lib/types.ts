@@ -10,6 +10,9 @@ export type Photographer = {
    *  cached thumbnail on demand via `ensureThumb` (Slice 3); `null` only if the
    *  folder has no readable image (those are skipped before reaching here). */
   coverPath: string | null;
+  /** Whether `coverPath` is a user pin (vs. the alphabetical default). Drives
+   *  the tile right-click menu's state (Slice 10). */
+  pinned: boolean;
 };
 
 /** "Uncategorised" is synthetic. */
