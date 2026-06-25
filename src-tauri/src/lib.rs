@@ -140,6 +140,7 @@ pub fn run() {
             scan::list_images,
             thumbs::ensure_thumb,
             analysis::compute_histogram,
+            analysis::compute_vectorscope,
             analysis::extract_palette
         ])
         .run(tauri::generate_context!())

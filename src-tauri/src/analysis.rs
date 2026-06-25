@@ -44,6 +44,56 @@ fn histogram(img: &image::RgbImage) -> Histogram {
     Histogram { r, g, b, l }
 }
 
+/// 128×128 Cb/Cr density grid. Row-major: `grid[gy * size + gx]`.
+/// Cb (blue-yellow) on gx, Cr (red-cyan) on gy, each mapped from -0.5..0.5
+/// to 0..size. Pixels outside the inscribed circle are dropped (their chroma
+/// would fall outside a valid RGB at mid-luma anyway).
+#[derive(serde::Serialize)]
+pub struct Vectorscope {
+    pub size: usize,
+    pub grid: Vec<u32>,
+}
+
+const VECTORSCOPE_SIZE: usize = 128;
+
+/// Rec. 709 Cb/Cr chroma density grid for `img`. Uses the same luma weights
+/// as `luma()` so the scope agrees with the histogram L and the eyedropper.
+/// Drops pixels whose chroma falls outside the inscribed circle (|Cb|²+|Cr|² > 0.25).
+fn vectorscope(img: &image::RgbImage) -> Vectorscope {
+    const S: usize = VECTORSCOPE_SIZE;
+    let mut grid = vec![0u32; S * S];
+    for px in img.pixels() {
+        let [r, g, b] = px.0;
+        let r = r as f64 / 255.0;
+        let g = g as f64 / 255.0;
+        let b = b as f64 / 255.0;
+        let y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        let cb = (b - y) / 1.8556; // -0.5..0.5
+        let cr = (r - y) / 1.5748; // -0.5..0.5
+        if cb * cb + cr * cr > 0.25 {
+            continue; // outside inscribed circle
+        }
+        let gx = ((cb + 0.5) * S as f64).floor() as usize;
+        let gy = ((cr + 0.5) * S as f64).floor() as usize;
+        grid[gy.min(S - 1) * S + gx.min(S - 1)] += 1;
+    }
+    Vectorscope { size: S, grid }
+}
+
+/// Decode `img_path` and return its Cb/Cr density grid. Same blocking-pool
+/// pattern and HEIC/AVIF rejection as `compute_histogram`.
+#[tauri::command]
+pub async fn compute_vectorscope(img_path: String) -> Result<Vectorscope, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let img = image::open(&img_path)
+            .map_err(|e| format!("decode {img_path}: {e}"))?
+            .to_rgb8();
+        Ok(vectorscope(&img))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Decode `img_path` and return its histogram. Decoding is blocking, so it runs
 /// on the blocking pool (a sync command would stall the UI — see agent memory).
 /// Rejects on any decode failure, including HEIC/AVIF: the `image` crate can't
@@ -418,6 +468,38 @@ pub async fn extract_palette(img_path: String, k: usize) -> Result<Vec<Swatch>, 
 mod tests {
     use super::*;
     use image::{Rgb, RgbImage};
+
+    #[test]
+    fn vectorscope_sums_to_pixel_count_for_neutral_grey() {
+        // Neutral grey: Cb=Cr=0, inside the circle, so all pixels bin.
+        let img = RgbImage::from_pixel(4, 4, Rgb([128, 128, 128]));
+        let v = vectorscope(&img);
+        assert_eq!(v.grid.iter().sum::<u32>(), 16, "all 16 pixels inside circle");
+    }
+
+    #[test]
+    fn neutral_grey_lands_at_centre_cell() {
+        // Any grey (equal R/G/B) has Cb=Cr=0 → maps to cell (64,64).
+        let img = RgbImage::from_pixel(3, 3, Rgb([200, 200, 200]));
+        let v = vectorscope(&img);
+        let s = VECTORSCOPE_SIZE;
+        assert_eq!(v.grid[64 * s + 64], 9, "all pixels in the centre cell");
+        assert!(
+            v.grid.iter().enumerate().all(|(i, &c)| i == 64 * s + 64 || c == 0),
+            "no other cell has counts"
+        );
+    }
+
+    #[test]
+    fn saturated_red_lands_off_centre_toward_rim() {
+        // [200,0,0]: Cr ≈ +0.39, Cb ≈ -0.09 → inside circle, positive Cr half.
+        let img = RgbImage::from_pixel(4, 4, Rgb([200, 0, 0]));
+        let v = vectorscope(&img);
+        let s = VECTORSCOPE_SIZE;
+        assert_eq!(v.grid[64 * s + 64], 0, "not at the neutral centre");
+        let hot = v.grid.iter().enumerate().max_by_key(|(_, &c)| c).unwrap().0;
+        assert!(hot / s > 64, "positive Cr → gy > 64 (upper half of grid)");
+    }
 
     #[test]
     fn bins_sum_to_pixel_count_and_spike_at_the_colour() {

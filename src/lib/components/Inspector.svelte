@@ -7,13 +7,14 @@
   // over the image, so the whole image stays hoverable for the Slice-7
   // eyedropper. Lays out three regions — readout, histogram, palette — as inert
   // stubs for now.
-  import type { Histogram as HistogramData, RefImage, Swatch } from "../types";
+  import type { Histogram as HistogramData, RefImage, Swatch, Vectorscope as VectorscopeData } from "../types";
   import { reading } from "../stores/eyedropper";
   import { paletteK, PALETTE_K_MIN, PALETTE_K_MAX } from "../stores/settings";
-  import { computeHistogram, extractPalette, setPaletteK } from "../ipc";
+  import { computeHistogram, computeVectorscope, extractPalette, setPaletteK } from "../ipc";
   import { CHANNELS } from "../analysis/draw-histogram";
   import Histogram from "./Histogram.svelte";
   import PaletteBar from "./PaletteBar.svelte";
+  import Vectorscope from "./Vectorscope.svelte";
 
   let { image }: { image: RefImage } = $props();
 
@@ -23,6 +24,9 @@
 
   let histogram = $state<HistogramData | null>(null);
   let histogramStatus = $state<"loading" | "ready" | "unavailable">("loading");
+
+  let vectorscope = $state<VectorscopeData | null>(null);
+  let vectorscopeStatus = $state<"loading" | "ready" | "unavailable">("loading");
 
   // Palette swatch count (Slice 9), 3–8. A global durable preference (the
   // Inspector remounts per open/page, so a local value would reset); changing it
@@ -38,22 +42,32 @@
   // a stale result when paging outruns an in-flight call (the same pattern
   // PhotographerView uses for list_images). Slice 7's eyedropper is local canvas
   // work and doesn't go through this seam.
+  // Histogram + vectorscope share one debounced, cancellable call: one decode
+  // failure (HEIC/AVIF, broken file) drives both to "unavailable" together.
   $effect(() => {
     const path = image.path;
     histogram = null;
     histogramStatus = "loading";
+    vectorscope = null;
+    vectorscopeStatus = "loading";
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
-        const result = await computeHistogram(path);
+        const [h, v] = await Promise.all([
+          computeHistogram(path),
+          computeVectorscope(path),
+        ]);
         if (!cancelled) {
-          histogram = result;
+          histogram = h;
           histogramStatus = "ready";
+          vectorscope = v;
+          vectorscopeStatus = "ready";
         }
       } catch {
-        // Decode failure (HEIC/AVIF, or a broken file) — show the unavailable
-        // state; the eyedropper readout above still works.
-        if (!cancelled) histogramStatus = "unavailable";
+        if (!cancelled) {
+          histogramStatus = "unavailable";
+          vectorscopeStatus = "unavailable";
+        }
       }
     }, COMPUTE_DEBOUNCE_MS);
     return () => {
@@ -148,6 +162,10 @@
       </div>
     </div>
     <PaletteBar {palette} status={paletteStatus} />
+  </section>
+  <section class="region">
+    <h2 class="label">Vectorscope</h2>
+    <Vectorscope {vectorscope} status={vectorscopeStatus} />
   </section>
 </aside>
 

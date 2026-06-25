@@ -37,6 +37,12 @@ export type Histogram = {
   l: number[];
 };
 
+/** 128×128 Cb/Cr density grid. Row-major: grid[gy * size + gx]. */
+export type Vectorscope = {
+  size: number;
+  grid: number[];
+};
+
 /** weight 0..1. */
 export type Swatch = {
   hex: string;
