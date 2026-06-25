@@ -133,7 +133,7 @@
     width: 100%;
     padding: 0;
     border: none;
-    border-radius: 0;
+    border-radius: 6px;
     overflow: hidden;
     background: rgba(255, 255, 255, 0.04);
     cursor: pointer;
