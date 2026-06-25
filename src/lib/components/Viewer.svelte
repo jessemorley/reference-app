@@ -420,6 +420,10 @@
     {/if}
 
     {#if expanded}
+      <!-- Drag strip: lets the user move the window by dragging the top bar area.
+           Placed before the control clusters so they stack above it in DOM order,
+           keeping their clicks — Tauri drags only on the exact mousedown target. -->
+      <div class="drag-strip" data-tauri-drag-region></div>
       <!-- Home/Back surfaced top-left while Expanded, since the viewer covers the
            header that normally holds them. Offset right to clear the OS traffic
            lights; mirrors the top-right control cluster, same [Back][Home] order
@@ -595,6 +599,17 @@
   .controls-left {
     right: auto;
     left: 88px;
+  }
+
+  /* Transparent drag strip across the top of the expanded viewer. Sits below the
+     control clusters (earlier in DOM = lower stacking order) so buttons stay
+     clickable; Tauri drags only on the exact mousedown target. */
+  .drag-strip {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2.25rem;
   }
 
   .ctrl {

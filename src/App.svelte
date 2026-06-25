@@ -114,7 +114,11 @@
   <RootPicker />
 {:else}
   <div class="shell">
-    <header class="bar">
+    <!-- Drag region: the bar's own background/padding/gaps move the window.
+         Tauri only drags on the exact element bearing the attribute, so the
+         buttons and search input (no attribute) stay interactive — only the
+         empty bar area and the name-box label below drag. -->
+    <header class="bar" data-tauri-drag-region>
       <!-- Back ascends one level (image → grid → root); Home jumps straight to
            root. Leftmost at every level, both disabled at the root. -->
       <div class="nav">
@@ -144,7 +148,9 @@
       {#if $selected}
         <div class="search-wrap">
           <User class="search-icon" size={15} aria-hidden="true" />
-          <span class="name-box" title={$selected.name}>{$selected.name}</span>
+          <span class="name-box" title={$selected.name} data-tauri-drag-region
+            >{$selected.name}</span
+          >
         </div>
         <div class="group">
           <button
