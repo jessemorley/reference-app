@@ -14,16 +14,21 @@ describe("densityToBrightness", () => {
     expect(densityToBrightness(0, 0)).toBe(0);
   });
 
-  it("lower density is dimmer (log scale)", () => {
+  it("lower density is dimmer", () => {
     const bright5 = densityToBrightness(5, 1000);
     const bright50 = densityToBrightness(50, 1000);
     expect(bright50).toBeGreaterThan(bright5);
   });
 
-  it("compresses dynamic range: 10× more density is well under 10× brighter", () => {
-    const b1 = densityToBrightness(10, 1000);
-    const b10 = densityToBrightness(100, 1000);
-    expect(b10 / b1).toBeLessThan(3); // log1p(100)/log1p(10) ≈ 2.0
+  it("noise cell (1% of max) is under 10% brightness — nearly invisible on dark bg", () => {
+    // sqrt(0.01) = 0.1: noise stays dim so low-density chroma doesn't clutter the scope.
+    expect(densityToBrightness(10, 1000)).toBeCloseTo(0.1, 5);
+  });
+
+  it("sqrt scale: 100× more density is 10× brighter (not 2× as with log)", () => {
+    const b1 = densityToBrightness(10, 1000);   // sqrt(0.01) = 0.1
+    const b100 = densityToBrightness(1000, 1000); // sqrt(1) = 1.0
+    expect(b100 / b1).toBeCloseTo(10, 1);
   });
 });
 

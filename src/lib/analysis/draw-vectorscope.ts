@@ -2,7 +2,9 @@
 // (`densityToBrightness`, `cellColor`) is unit-tested; `drawVectorscope` is
 // canvas glue (Slice-5/7/8 pattern). Grid cells are tinted with the colour
 // that chroma represents (reconstructed RGB at Y=0.5), with brightness on a
-// log scale so sparse chroma doesn't vanish next to dense neutrals.
+// sqrt scale. Cells are drawn with additive ("lighter") blending + a blur
+// filter so dense clusters accumulate into bright glowing hotspots while
+// sparse noise cells contribute nearly nothing — matching the DaVinci look.
 
 import type { Vectorscope } from "../types";
 import type { Reading } from "../stores/eyedropper";
@@ -11,12 +13,13 @@ const BG = "#141414";
 const GRATICULE = "rgba(255, 255, 255, 0.12)";
 const HOVER = "#ffa233"; // amber, shared with histogram's hover colour
 
-/** Log-scale brightness for a density count: 0 → 0, maxCount → 1.
- *  log1p compresses the orders-of-magnitude span so dim chroma is still
- *  visible beside saturated hot spots. Pure. */
+/** Sqrt-scale brightness for a density count: 0 → 0, maxCount → 1.
+ *  sqrt gives a 7:1 ratio between max and a 2%-of-max cell (vs log's 2:1),
+ *  so noise cells (~1% of max) fall to <10% brightness and vanish on the
+ *  dark background, while hot clusters stay near full brightness. Pure. */
 export function densityToBrightness(count: number, maxCount: number): number {
   if (count === 0 || maxCount === 0) return 0;
-  return Math.log1p(count) / Math.log1p(maxCount);
+  return Math.sqrt(count / maxCount);
 }
 
 /** sRGB [0..255] for the colour that cell (gx, gy) represents — reconstructed
@@ -53,22 +56,28 @@ export function drawVectorscope(
   let maxCount = 0;
   for (const c of scope.grid) if (c > maxCount) maxCount = c;
 
-  // Draw each non-empty cell. Grid: gx=Cb (yellow→blue), gy=Cr (cyan→red).
+  // Draw each non-empty cell with additive blending + blur. "lighter" makes
+  // dense clusters of adjacent cells accumulate light into bright cores.
+  // The blur spreads each cell's contribution so neighbours overlap and glow.
+  // Grid: gx=Cb (yellow→blue), gy=Cr (cyan→red).
   // Canvas: x=gx, y=(size-1-gy) so positive Cr (red) is at the top.
   const { size } = scope;
   const cellW = w / size;
   const cellH = h / size;
+  ctx.globalCompositeOperation = "lighter";
+  ctx.filter = "blur(3px)";
   for (let gy = 0; gy < size; gy++) {
     for (let gx = 0; gx < size; gx++) {
       const count = scope.grid[gy * size + gx];
       if (count === 0) continue;
       const bright = densityToBrightness(count, maxCount);
       const [r, g, b] = cellColor(gx, gy, size);
-      ctx.fillStyle = `rgba(${r},${g},${b},${Math.max(0.05, bright)})`;
-      // min 0.05 alpha so every non-zero cell is visible even at low density
+      ctx.fillStyle = `rgba(${r},${g},${b},${bright})`;
       ctx.fillRect(gx * cellW, (size - 1 - gy) * cellH, Math.ceil(cellW), Math.ceil(cellH));
     }
   }
+  ctx.filter = "none";
+  ctx.globalCompositeOperation = "source-over";
 
   // Graticule: bounding circle + faint centre cross
   ctx.strokeStyle = GRATICULE;
