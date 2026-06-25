@@ -31,6 +31,7 @@
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import House from "@lucide/svelte/icons/house";
   import Search from "@lucide/svelte/icons/search";
+  import User from "@lucide/svelte/icons/user";
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import RootPicker from "./lib/components/RootPicker.svelte";
   import PhotographerGrid from "./lib/components/PhotographerGrid.svelte";
@@ -140,7 +141,10 @@
       </div>
 
       {#if $selected}
-        <span class="path" title={$selected.name}>{$selected.name}</span>
+        <div class="search-wrap">
+          <User class="search-icon" size={15} aria-hidden="true" />
+          <span class="name-box" title={$selected.name}>{$selected.name}</span>
+        </div>
         <div class="group">
           <button
             title="Reveal this photographer's folder in Finder"
@@ -224,12 +228,19 @@
     user-select: none;
   }
 
-  .path {
+  /* Photographer name, boxed to read like the search bar it replaces at this
+     level (same border/background/radius, User icon in place of the magnifier).
+     A static span, not an input — it's a label, not a field. */
+  .name-box {
     flex: 1;
     min-width: 0;
-    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    /* Left padding clears the icon; matches .search. */
+    padding: 0.35rem 0.6rem 0.35rem 1.85rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0.4rem;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--fg);
     font-size: 0.85rem;
-    color: var(--fg-dim);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
