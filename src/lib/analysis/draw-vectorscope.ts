@@ -2,9 +2,8 @@
 // (`densityToBrightness`, `cellColor`) is unit-tested; `drawVectorscope` is
 // canvas glue (Slice-5/7/8 pattern). Grid cells are tinted with the colour
 // that chroma represents (reconstructed RGB at Y=0.5), with brightness on a
-// sqrt scale. Cells are drawn with additive ("lighter") blending + a blur
-// filter so dense clusters accumulate into bright glowing hotspots while
-// sparse noise cells contribute nearly nothing — matching the DaVinci look.
+// sqrt scale + gain. At 512×512 cells are sub-pixel on the Inspector canvas,
+// so no blur is needed for smoothness.
 
 import type { Vectorscope } from "../types";
 import type { Reading } from "../stores/eyedropper";
@@ -12,6 +11,12 @@ import type { Reading } from "../stores/eyedropper";
 const BG = "#141414";
 const GRATICULE = "rgba(255, 255, 255, 0.12)";
 const HOVER = "#ffa233"; // amber, shared with histogram's hover colour
+
+// ponytail: tuning knob — raise to show dimmer chroma trails, lower to show
+// only the strongest clusters. At GAIN=5 cells reach full brightness at ~4%
+// of the max cell count, so the neutral centre and saturated colour blobs are
+// both clearly visible without blowing out to pure white.
+const GAIN = 5;
 
 /** Sqrt-scale brightness for a density count: 0 → 0, maxCount → 1.
  *  sqrt gives a 7:1 ratio between max and a 2%-of-max cell (vs log's 2:1),
@@ -65,16 +70,12 @@ export function drawVectorscope(
   // Canvas: x=gx, y=(size-1-gy) so positive Cr (red) is at the top.
   const cellW = w / size;
   const cellH = h / size;
-  ctx.globalCompositeOperation = "lighter";
-  ctx.filter = "blur(3px)";
   for (const [gx, gy, count] of cells) {
-    const bright = densityToBrightness(count, maxCount);
+    const bright = Math.min(1, densityToBrightness(count, maxCount) * GAIN);
     const [r, g, b] = cellColor(gx, gy, size);
     ctx.fillStyle = `rgba(${r},${g},${b},${bright})`;
     ctx.fillRect(gx * cellW, (size - 1 - gy) * cellH, Math.ceil(cellW), Math.ceil(cellH));
   }
-  ctx.filter = "none";
-  ctx.globalCompositeOperation = "source-over";
 
   // Graticule: bounding circle + faint centre cross
   ctx.strokeStyle = GRATICULE;
