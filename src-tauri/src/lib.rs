@@ -98,8 +98,8 @@ fn set_cover(app: tauri::AppHandle, rel_path: String, img_path: Option<String>) 
 /// image-tile menu (the image file) and the photographer-view header (the
 /// folder) — Slice 10.
 #[tauri::command]
-fn reveal_in_finder(path: String) {
-    let _ = tauri_plugin_opener::reveal_item_in_dir(path);
+fn reveal_in_finder(path: String) -> Result<(), String> {
+    tauri_plugin_opener::reveal_item_in_dir(path).map_err(|e| e.to_string())
 }
 
 /// Widen the asset-protocol scope to serve full-res Reference images from

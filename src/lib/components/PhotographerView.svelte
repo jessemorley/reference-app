@@ -112,11 +112,16 @@
       listImages(root, photographer.relPath)
         .then((res) => {
           if (res.images.length === 0) {
+            openIndex.set(null);
             selected.set(null);
             return;
           }
           categories = res.categories;
           images = res.images;
+          if (pinned && !res.images.some((img) => img.path === coverPath)) {
+            coverPath = null;
+            pinned = false;
+          }
         })
         .catch(() => {});
     });
@@ -175,7 +180,7 @@
             class:active={$activeTab === t.key}
             type="button"
             aria-pressed={$activeTab === t.key}
-            onclick={() => activeTab.set(t.key)}
+            onclick={() => { activeTab.set(t.key); openIndex.set(null); }}
           >
             {t.label}<span class="count">{t.count}</span>
           </button>

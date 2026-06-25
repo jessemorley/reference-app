@@ -98,8 +98,8 @@
   function onFocus() {
     if (blurAt !== null && Date.now() - blurAt > 5000) {
       refreshSignal.update((n) => n + 1);
+      blurAt = null;
     }
-    blurAt = null;
   }
 </script>
 
@@ -278,9 +278,6 @@
     cursor: default;
   }
 
-  .nav-btn:disabled:hover {
-    background: rgba(255, 255, 255, 0.08);
-  }
 
   /* Size every header button to the search bar (same text size, vertical
      padding and radius), so the bar reads as one row of equal-height controls.
