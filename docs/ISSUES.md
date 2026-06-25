@@ -13,8 +13,7 @@ the bottom under "Resolved".
 - Hide folder location; instead show forward/back buttons (Also replace the "< Photographers" button from Photographer view)
   
 ### Colour Palette
-- Automatically-select number of colours for pallette, with plus minus buttons instead of dropdown to add/reduce
-- Set min width for pallette sections at 15px
+- Automatically-select number of colours for palette (suggest a default k)
 - Add button to show palette anchor points on the image which can be dragged to new values by the user
 - Add option to show palette on colour wheel
 
