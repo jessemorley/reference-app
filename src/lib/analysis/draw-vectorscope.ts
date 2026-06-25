@@ -16,7 +16,7 @@ const HOVER = "#ffa233"; // amber, shared with histogram's hover colour
 // only the strongest clusters. At GAIN=5 cells reach full brightness at ~4%
 // of the max cell count, so the neutral centre and saturated colour blobs are
 // both clearly visible without blowing out to pure white.
-const GAIN = 5;
+const GAIN = 10;
 
 /** Sqrt-scale brightness for a density count: 0 → 0, maxCount → 1.
  *  sqrt gives a 7:1 ratio between max and a 2%-of-max cell (vs log's 2:1),
@@ -68,14 +68,20 @@ export function drawVectorscope(
   // without blur; the blur(3px) adds the soft glow halo.
   // Grid: gx=Cb (yellow→blue), gy=Cr (cyan→red).
   // Canvas: x=gx, y=(size-1-gy) so positive Cr (red) is at the top.
+  // "lighter" (additive) blending: each cell adds its light to the canvas
+  // instead of painting over it. Sub-pixel cells at 512×512 share device
+  // pixels at fractional positions, so adjacent dense cells accumulate and
+  // blow out toward white — headroom that source-over can't provide.
   const cellW = w / size;
   const cellH = h / size;
+  ctx.globalCompositeOperation = "lighter";
   for (const [gx, gy, count] of cells) {
     const bright = Math.min(1, densityToBrightness(count, maxCount) * GAIN);
     const [r, g, b] = cellColor(gx, gy, size);
     ctx.fillStyle = `rgba(${r},${g},${b},${bright})`;
     ctx.fillRect(gx * cellW, (size - 1 - gy) * cellH, Math.ceil(cellW), Math.ceil(cellH));
   }
+  ctx.globalCompositeOperation = "source-over";
 
   // Graticule: bounding circle + faint centre cross
   ctx.strokeStyle = GRATICULE;
