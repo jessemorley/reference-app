@@ -30,6 +30,7 @@
   } from "./lib/stores/settings";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import House from "@lucide/svelte/icons/house";
+  import Search from "@lucide/svelte/icons/search";
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import RootPicker from "./lib/components/RootPicker.svelte";
   import PhotographerGrid from "./lib/components/PhotographerGrid.svelte";
@@ -149,14 +150,17 @@
           <TileSizeSlider view="photographer" />
         </div>
       {:else}
-        <input
-          class="search"
-          type="search"
-          placeholder="Search photographers…"
-          aria-label="Search photographers"
-          title={$root}
-          bind:value={$search}
-        />
+        <div class="search-wrap">
+          <Search class="search-icon" size={15} aria-hidden="true" />
+          <input
+            class="search"
+            type="search"
+            placeholder="Search photographers…"
+            aria-label="Search photographers"
+            title={$root}
+            bind:value={$search}
+          />
+        </div>
         <div class="group">
           <TileSizeSlider view="root" />
           <button class="icon-btn" onclick={change}>
@@ -267,10 +271,28 @@
     gap: 0.4rem;
   }
 
+  /* Wraps the input so the search icon can sit inside its left edge. */
+  .search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+  }
+
+  .search-wrap :global(.search-icon) {
+    position: absolute;
+    left: 0.6rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--fg-dim);
+    pointer-events: none;
+  }
+
   .search {
     flex: 1;
     min-width: 0;
-    padding: 0.35rem 0.6rem;
+    /* Left padding clears the icon. */
+    padding: 0.35rem 0.6rem 0.35rem 1.85rem;
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 0.4rem;
     background: rgba(255, 255, 255, 0.05);
