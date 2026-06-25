@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/svelte";
 import App from "./App.svelte";
 import { root } from "./lib/stores/root";
-import { resetToRoot } from "./lib/stores/navigation";
+import { selected, openIndex } from "./lib/stores/navigation";
 
 // App hydrates from getRoot() on mount and opens the picker via selectRoot().
 // Mock the IPC layer so the component's branching is the only thing under test.
@@ -41,8 +41,9 @@ beforeEach(() => {
   vi.mocked(getPaletteK).mockResolvedValue(null);
   // The root store is a module-level singleton; reset it between tests.
   root.set(null);
-  // The navigation history is likewise module-level; start each test on the grid.
-  resetToRoot();
+  // The navigation stores are likewise module-level; start each test on the grid.
+  selected.set(null);
+  openIndex.set(null);
 });
 
 describe("App branching", () => {

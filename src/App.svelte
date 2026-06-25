@@ -13,14 +13,11 @@
   import { root } from "./lib/stores/root";
   import {
     selected,
+    openIndex,
     search,
     refreshSignal,
     canBack,
-    canForward,
     back,
-    forward,
-    openPhotographer,
-    resetToRoot,
   } from "./lib/stores/navigation";
   import {
     settings,
@@ -32,8 +29,8 @@
     asPaletteK,
   } from "./lib/stores/settings";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
+  import House from "@lucide/svelte/icons/house";
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
-  import ArrowRight from "@lucide/svelte/icons/arrow-right";
   import RootPicker from "./lib/components/RootPicker.svelte";
   import PhotographerGrid from "./lib/components/PhotographerGrid.svelte";
   import PhotographerView from "./lib/components/PhotographerView.svelte";
@@ -73,7 +70,8 @@
   async function change() {
     const chosen = await selectRoot();
     if (chosen) {
-      resetToRoot(); // fresh history; closes any open photographer/viewer
+      selected.set(null); // back to root; closes any open photographer/viewer
+      openIndex.set(null);
       search.set(""); // search is cleared when the folder changes
       root.set(chosen);
     }
@@ -114,9 +112,21 @@
 {:else}
   <div class="shell">
     <header class="bar">
-      <!-- Browser-style history nav, leftmost at every level (root, photographer,
-           viewer). Disabled at the ends of the stack. -->
+      <!-- Home jumps straight to root; Back ascends one level (image → grid →
+           root). Leftmost at every level, both disabled at the root. -->
       <div class="nav">
+        <button
+          class="nav-btn"
+          onclick={() => {
+            selected.set(null);
+            openIndex.set(null);
+          }}
+          disabled={!$canBack}
+          title="Home"
+          aria-label="Home"
+        >
+          <House size={16} aria-hidden="true" />
+        </button>
         <button
           class="nav-btn"
           onclick={back}
@@ -125,15 +135,6 @@
           aria-label="Back"
         >
           <ArrowLeft size={16} aria-hidden="true" />
-        </button>
-        <button
-          class="nav-btn"
-          onclick={forward}
-          disabled={!$canForward}
-          title="Forward"
-          aria-label="Forward"
-        >
-          <ArrowRight size={16} aria-hidden="true" />
         </button>
       </div>
 
@@ -167,7 +168,7 @@
     {#if $selected}
       <PhotographerView root={$root!} photographer={$selected} />
     {:else}
-      <PhotographerGrid root={$root!} onselect={(p) => openPhotographer(p)} />
+      <PhotographerGrid root={$root!} onselect={(p) => selected.set(p)} />
     {/if}
   </div>
 {/if}
@@ -202,7 +203,10 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
+    /* Even gap so the nav buttons and the search/path read as one evenly
+       spaced cluster (matches .nav's inter-button gap); .group restores the
+       wider spacing on its side. */
+    gap: 0.5rem;
     padding: 0.5rem 1rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     /* Chrome, not content: the bar's labels (path, photographer name) shouldn't
@@ -222,11 +226,11 @@
     text-overflow: ellipsis;
   }
 
-  /* History back/forward pair, leftmost in the bar. */
+  /* Back button, leftmost in the bar. */
   .nav {
     flex: none;
     display: flex;
-    gap: 0.25rem;
+    gap: 0.5rem;
   }
 
   /* Square icon-only buttons sized to the bar's button height. */
@@ -292,6 +296,9 @@
     align-items: center;
     gap: 0.75rem;
     min-width: 0;
+    /* Restore the wider spacing between the search/path and the controls (the
+       .bar gap was tightened for the nav cluster on the left). */
+    margin-left: 0.75rem;
   }
 
 </style>

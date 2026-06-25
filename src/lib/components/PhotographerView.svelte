@@ -13,11 +13,8 @@
     ALL_TAB,
     UNCATEGORISED_TAB,
     refreshSignal,
+    selected,
     openIndex,
-    openImage,
-    pageImage,
-    closeViewer,
-    goRoot,
   } from "../stores/navigation";
   import { settings } from "../stores/settings";
   import Thumb from "./Thumb.svelte";
@@ -30,9 +27,9 @@
   let images = $state<RefImage[] | null>(null);
   let error = $state<string | null>(null);
 
-  // Which image is open in the Viewer lives in the navigation history store
-  // (`openIndex`) so the back/forward buttons can open/close it — opening an
-  // image is a third history level below the photographer view.
+  // Which image is open in the Viewer lives in the navigation store
+  // (`openIndex`) so the header's back button can close it — opening an image is
+  // the third (deepest) level below the photographer view.
 
   // The effective cover image and whether it's a user pin — seeded from the
   // photographer prop, updated locally on a set/reset so the tile menu reflects
@@ -54,6 +51,7 @@
     error = null;
     categories = [];
     activeTab.set(ALL_TAB);
+    openIndex.set(null); // close any open Viewer when the photographer changes
     menu = null;
     coverPath = photographer.coverPath;
     pinned = photographer.pinned;
@@ -114,7 +112,7 @@
       listImages(root, photographer.relPath)
         .then((res) => {
           if (res.images.length === 0) {
-            goRoot();
+            selected.set(null);
             return;
           }
           categories = res.categories;
@@ -192,7 +190,7 @@
             <button
               class="open"
               type="button"
-              onclick={() => openImage(i)}
+              onclick={() => openIndex.set(i)}
               oncontextmenu={(e) => openMenu(e, img)}
             >
               <Thumb path={img.path} alt={img.name} />
@@ -206,8 +204,8 @@
       <Viewer
         images={shown}
         index={$openIndex}
-        onpage={(i) => pageImage(i)}
-        onclose={() => closeViewer()}
+        onpage={(i) => openIndex.set(i)}
+        onclose={() => openIndex.set(null)}
       />
     {/if}
   {/if}
