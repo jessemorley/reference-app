@@ -187,8 +187,14 @@
     text-overflow: ellipsis;
   }
 
+  /* Size every header button to the search bar (same text size, vertical
+     padding and radius), so the bar reads as one row of equal-height controls.
+     1px border matches the search input's, so the box heights line up. */
   .bar button {
     flex: none;
+    padding: 0.35rem 0.7rem;
+    font-size: 0.85rem;
+    border-radius: 0.4rem;
   }
 
   .search {
@@ -222,10 +228,10 @@
     min-width: 0;
   }
 
-  /* Back affordance reads as a quiet link, not a chunky button. */
+  /* Back affordance reads as a quiet link, not a chunky button. Inherits the
+     .bar button height; only the chrome is stripped back. */
   .back {
     background: transparent;
     border-color: transparent;
-    padding: 0.55rem 0.6rem;
   }
 </style>
