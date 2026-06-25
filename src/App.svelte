@@ -28,6 +28,7 @@
     paletteK,
     asPaletteK,
   } from "./lib/stores/settings";
+  import Folder from "@lucide/svelte/icons/folder";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import House from "@lucide/svelte/icons/house";
   import Search from "@lucide/svelte/icons/search";
@@ -147,10 +148,13 @@
         </div>
         <div class="group">
           <button
+            class="icon-btn"
             title="Reveal this photographer's folder in Finder"
+            aria-label="Reveal this photographer's folder in Finder"
             onclick={() => revealInFinder(`${$root}/${$selected!.relPath}`)}
-            >Reveal in Finder</button
           >
+            <FolderOpen size={15} aria-hidden="true" />
+          </button>
           <TileSizeSlider view="photographer" />
         </div>
       {:else}
@@ -172,7 +176,7 @@
             title="Change folder…"
             aria-label="Change folder…"
           >
-            <FolderOpen size={15} aria-hidden="true" />
+            <Folder size={15} aria-hidden="true" />
           </button>
           <TileSizeSlider view="root" />
         </div>
