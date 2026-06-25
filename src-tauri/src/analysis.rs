@@ -44,19 +44,21 @@ fn histogram(img: &image::RgbImage) -> Histogram {
     Histogram { r, g, b, l }
 }
 
-/// 128×128 Cb/Cr density grid. Row-major: `grid[gy * size + gx]`.
-/// Cb (blue-yellow) on gx, Cr (red-cyan) on gy, each mapped from -0.5..0.5
-/// to 0..size. Pixels outside the inscribed circle are dropped (their chroma
-/// would fall outside a valid RGB at mid-luma anyway).
+/// Sparse 512×512 Cb/Cr density map: only non-zero cells, as (gx, gy, count).
+/// 512 bins per axis → sub-pixel cells at the 300 px Inspector width (even
+/// on Retina), so the rendered scope looks smooth without needing a coarse
+/// blur. Sparse encoding keeps the IPC payload to ~200 KB for a typical photo
+/// instead of ~550 KB for a full flat 512×512 grid.
 #[derive(serde::Serialize)]
 pub struct Vectorscope {
     pub size: usize,
-    pub grid: Vec<u32>,
+    /// Non-zero cells only: each entry is `[gx, gy, count]`.
+    pub cells: Vec<[u32; 3]>,
 }
 
-const VECTORSCOPE_SIZE: usize = 128;
+const VECTORSCOPE_SIZE: usize = 512;
 
-/// Rec. 709 Cb/Cr chroma density grid for `img`. Uses the same luma weights
+/// Rec. 709 Cb/Cr chroma density map for `img`. Uses the same luma weights
 /// as `luma()` so the scope agrees with the histogram L and the eyedropper.
 /// Drops pixels whose chroma falls outside the inscribed circle (|Cb|²+|Cr|² > 0.25).
 fn vectorscope(img: &image::RgbImage) -> Vectorscope {
@@ -77,7 +79,13 @@ fn vectorscope(img: &image::RgbImage) -> Vectorscope {
         let gy = ((cr + 0.5) * S as f64).floor() as usize;
         grid[gy.min(S - 1) * S + gx.min(S - 1)] += 1;
     }
-    Vectorscope { size: S, grid }
+    let cells = grid
+        .iter()
+        .enumerate()
+        .filter(|(_, &c)| c > 0)
+        .map(|(i, &c)| [(i % S) as u32, (i / S) as u32, c])
+        .collect();
+    Vectorscope { size: S, cells }
 }
 
 /// Decode `img_path` and return its Cb/Cr density grid. Same blocking-pool
@@ -474,20 +482,17 @@ mod tests {
         // Neutral grey: Cb=Cr=0, inside the circle, so all pixels bin.
         let img = RgbImage::from_pixel(4, 4, Rgb([128, 128, 128]));
         let v = vectorscope(&img);
-        assert_eq!(v.grid.iter().sum::<u32>(), 16, "all 16 pixels inside circle");
+        let total: u32 = v.cells.iter().map(|[_, _, c]| c).sum();
+        assert_eq!(total, 16, "all 16 pixels inside circle");
     }
 
     #[test]
     fn neutral_grey_lands_at_centre_cell() {
-        // Any grey (equal R/G/B) has Cb=Cr=0 → maps to cell (64,64).
+        // Any grey (equal R/G/B) has Cb=Cr=0 → maps to cell (256,256) at 512×512.
         let img = RgbImage::from_pixel(3, 3, Rgb([200, 200, 200]));
         let v = vectorscope(&img);
-        let s = VECTORSCOPE_SIZE;
-        assert_eq!(v.grid[64 * s + 64], 9, "all pixels in the centre cell");
-        assert!(
-            v.grid.iter().enumerate().all(|(i, &c)| i == 64 * s + 64 || c == 0),
-            "no other cell has counts"
-        );
+        assert_eq!(v.cells.len(), 1, "single non-zero cell");
+        assert_eq!(v.cells[0], [256, 256, 9], "centre cell holds all 9 pixels");
     }
 
     #[test]
@@ -495,10 +500,12 @@ mod tests {
         // [200,0,0]: Cr ≈ +0.39, Cb ≈ -0.09 → inside circle, positive Cr half.
         let img = RgbImage::from_pixel(4, 4, Rgb([200, 0, 0]));
         let v = vectorscope(&img);
-        let s = VECTORSCOPE_SIZE;
-        assert_eq!(v.grid[64 * s + 64], 0, "not at the neutral centre");
-        let hot = v.grid.iter().enumerate().max_by_key(|(_, &c)| c).unwrap().0;
-        assert!(hot / s > 64, "positive Cr → gy > 64 (upper half of grid)");
+        assert!(
+            v.cells.iter().all(|[gx, gy, _]| !(*gx == 256 && *gy == 256)),
+            "not at the neutral centre"
+        );
+        let hot = v.cells.iter().max_by_key(|[_, _, c]| c).unwrap();
+        assert!(hot[1] > 256, "positive Cr → gy > 256 (upper half of grid)");
     }
 
     #[test]

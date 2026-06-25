@@ -52,29 +52,26 @@ export function drawVectorscope(
   ctx.arc(w / 2, h / 2, Math.min(w, h) / 2, 0, Math.PI * 2);
   ctx.fill();
 
-  // Max density for log scaling (O(size²) scan, negligible for 128×128)
+  // Max density across non-zero cells for brightness scaling.
+  const { size, cells } = scope;
   let maxCount = 0;
-  for (const c of scope.grid) if (c > maxCount) maxCount = c;
+  for (const [,, c] of cells) if (c > maxCount) maxCount = c;
 
-  // Draw each non-empty cell with additive blending + blur. "lighter" makes
-  // dense clusters of adjacent cells accumulate light into bright cores.
-  // The blur spreads each cell's contribution so neighbours overlap and glow.
+  // Draw each non-zero cell with additive blending + blur. "lighter" makes
+  // dense clusters accumulate light into bright cores. At 512×512 cells are
+  // sub-pixel on the Inspector canvas, so there are no visible squares even
+  // without blur; the blur(3px) adds the soft glow halo.
   // Grid: gx=Cb (yellow→blue), gy=Cr (cyan→red).
   // Canvas: x=gx, y=(size-1-gy) so positive Cr (red) is at the top.
-  const { size } = scope;
   const cellW = w / size;
   const cellH = h / size;
   ctx.globalCompositeOperation = "lighter";
   ctx.filter = "blur(3px)";
-  for (let gy = 0; gy < size; gy++) {
-    for (let gx = 0; gx < size; gx++) {
-      const count = scope.grid[gy * size + gx];
-      if (count === 0) continue;
-      const bright = densityToBrightness(count, maxCount);
-      const [r, g, b] = cellColor(gx, gy, size);
-      ctx.fillStyle = `rgba(${r},${g},${b},${bright})`;
-      ctx.fillRect(gx * cellW, (size - 1 - gy) * cellH, Math.ceil(cellW), Math.ceil(cellH));
-    }
+  for (const [gx, gy, count] of cells) {
+    const bright = densityToBrightness(count, maxCount);
+    const [r, g, b] = cellColor(gx, gy, size);
+    ctx.fillStyle = `rgba(${r},${g},${b},${bright})`;
+    ctx.fillRect(gx * cellW, (size - 1 - gy) * cellH, Math.ceil(cellW), Math.ceil(cellH));
   }
   ctx.filter = "none";
   ctx.globalCompositeOperation = "source-over";

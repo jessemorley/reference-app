@@ -37,10 +37,10 @@ export type Histogram = {
   l: number[];
 };
 
-/** 128×128 Cb/Cr density grid. Row-major: grid[gy * size + gx]. */
+/** Sparse 512×512 Cb/Cr density map. Only non-zero cells, each as [gx, gy, count]. */
 export type Vectorscope = {
   size: number;
-  grid: number[];
+  cells: [number, number, number][];
 };
 
 /** weight 0..1. */
