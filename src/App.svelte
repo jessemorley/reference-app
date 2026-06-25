@@ -162,10 +162,15 @@
           />
         </div>
         <div class="group">
-          <TileSizeSlider view="root" />
-          <button class="icon-btn" onclick={change}>
-            <FolderOpen size={15} aria-hidden="true" />Change folder…
+          <button
+            class="icon-btn"
+            onclick={change}
+            title="Change folder…"
+            aria-label="Change folder…"
+          >
+            <FolderOpen size={15} aria-hidden="true" />
           </button>
+          <TileSizeSlider view="root" />
         </div>
       {/if}
     </header>
@@ -318,9 +323,6 @@
     align-items: center;
     gap: 0.75rem;
     min-width: 0;
-    /* Restore the wider spacing between the search/path and the controls (the
-       .bar gap was tightened for the nav cluster on the left). */
-    margin-left: 0.75rem;
   }
 
 </style>
