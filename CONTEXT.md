@@ -36,8 +36,11 @@ _Avoid_: thumbnail, preview (those mean the small grid renditions, not the chose
 The single-image surface: one Reference image shown full-resolution against a
 Backdrop for close inspection and analysis. Entered from the photographer view by
 opening a Reference image, and paged left/right through the images of the active
-filter tab.
-_Avoid_: lightbox, modal, preview.
+filter tab. Has two size states: **Windowed** (fills the content region, below the
+header) and **Expanded** (fills the whole window, over the header and titlebar).
+Expanded is ephemeral — every open starts Windowed.
+_Avoid_: lightbox, modal, preview. For the size states, _avoid_: "maximised"
+(use Expanded), "fullscreen" (that's the OS state, not this).
 
 **Inspector**:
 The panel of analysis tools for the open Reference image, shown alongside the

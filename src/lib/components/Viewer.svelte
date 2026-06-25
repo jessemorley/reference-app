@@ -14,6 +14,9 @@
     type Backdrop,
   } from "../stores/settings";
   import Inspector from "./Inspector.svelte";
+  import { back, selected, openIndex } from "../stores/navigation";
+  import House from "@lucide/svelte/icons/house";
+  import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import {
     fitScale,
     fitTransform,
@@ -51,6 +54,15 @@
   let animateZoom = $state(false);
 
   let expanded = $state(false);
+
+  // Home/Back, surfaced only while Expanded — the header that normally holds
+  // them is covered then. Back ascends one level (image → grid); Home jumps to
+  // root. Either sets openIndex=null, so PhotographerView unmounts this Viewer
+  // and `expanded` resets — next open starts Windowed.
+  function home() {
+    selected.set(null);
+    openIndex.set(null);
+  }
 
   // Viewport size (bound to the surround element); 0 until first measured.
   let vw = $state(0);
@@ -407,6 +419,33 @@
       {/if}
     {/if}
 
+    {#if expanded}
+      <!-- Home/Back surfaced top-left while Expanded, since the viewer covers the
+           header that normally holds them. Offset right to clear the OS traffic
+           lights; mirrors the top-right control cluster, same [Back][Home] order
+           and lucide icons as the header so positions don't move between modes. -->
+      <div class="controls controls-left">
+        <button
+          class="ctrl"
+          type="button"
+          title="Back"
+          aria-label="Back"
+          onclick={back}
+        >
+          <ArrowLeft size={16} aria-hidden="true" />
+        </button>
+        <button
+          class="ctrl"
+          type="button"
+          title="Home"
+          aria-label="Home"
+          onclick={home}
+        >
+          <House size={16} aria-hidden="true" />
+        </button>
+      </div>
+    {/if}
+
     <!-- Corner control cluster: Inspector toggle + expand (backdrop is
          right-click). Pinned to the image column's corner, so it sits just left
          of the Inspector when that's open. The Inspector toggle shows only when
@@ -550,6 +589,12 @@
     right: 0.75rem;
     display: flex;
     gap: 0.4rem;
+  }
+
+  /* Mirror of .controls on the left, offset to clear the OS traffic lights. */
+  .controls-left {
+    right: auto;
+    left: 88px;
   }
 
   .ctrl {

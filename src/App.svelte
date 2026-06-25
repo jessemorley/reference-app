@@ -115,9 +115,18 @@
 {:else}
   <div class="shell">
     <header class="bar">
-      <!-- Home jumps straight to root; Back ascends one level (image → grid →
-           root). Leftmost at every level, both disabled at the root. -->
+      <!-- Back ascends one level (image → grid → root); Home jumps straight to
+           root. Leftmost at every level, both disabled at the root. -->
       <div class="nav">
+        <button
+          class="nav-btn"
+          onclick={back}
+          disabled={!$canBack}
+          title="Back"
+          aria-label="Back"
+        >
+          <ArrowLeft size={16} aria-hidden="true" />
+        </button>
         <button
           class="nav-btn"
           onclick={() => {
@@ -129,15 +138,6 @@
           aria-label="Home"
         >
           <House size={16} aria-hidden="true" />
-        </button>
-        <button
-          class="nav-btn"
-          onclick={back}
-          disabled={!$canBack}
-          title="Back"
-          aria-label="Back"
-        >
-          <ArrowLeft size={16} aria-hidden="true" />
         </button>
       </div>
 
