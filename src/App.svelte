@@ -117,15 +117,15 @@
           <TileSizeSlider view="photographer" />
         </div>
       {:else}
-        <span class="path" title={$root}>{$root}</span>
+        <input
+          class="search"
+          type="search"
+          placeholder="Search photographers…"
+          aria-label="Search photographers"
+          title={$root}
+          bind:value={$search}
+        />
         <div class="group">
-          <input
-            class="search"
-            type="search"
-            placeholder="Search photographers…"
-            aria-label="Search photographers"
-            bind:value={$search}
-          />
           <TileSizeSlider view="root" />
           <button onclick={change}>Change folder…</button>
         </div>
@@ -192,8 +192,8 @@
   }
 
   .search {
-    flex: none;
-    width: 12rem;
+    flex: 1;
+    min-width: 0;
     padding: 0.35rem 0.6rem;
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 0.4rem;
