@@ -12,6 +12,15 @@ export const selected = writable<Photographer | null>(null);
 export const ALL_TAB = "All";
 export const UNCATEGORISED_TAB = "Uncategorised";
 
+/** The root-grid photographer search query. Filtered client-side over the
+ *  already-loaded list (no IPC); cleared when the folder changes (Slice 10). */
+export const search = writable<string>("");
+
+/** Bumped to ask the active view to silently re-scan in place (⌘R / focus
+ *  return — Slice 10). Views ignore the initial 0 and re-fetch without showing
+ *  their first-load "Scanning…"/"Loading…" state. */
+export const refreshSignal = writable<number>(0);
+
 /** The active filter tab within the photographer view: ALL_TAB,
  *  UNCATEGORISED_TAB, or a Category name. Tracked here (not as local component
  *  state) because the Slice 5 viewer pages through the *active tab's* set, so it

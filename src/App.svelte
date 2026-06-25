@@ -8,9 +8,10 @@
     getRoot,
     getTileSizes,
     selectRoot,
+    revealInFinder,
   } from "./lib/ipc";
   import { root } from "./lib/stores/root";
-  import { selected } from "./lib/stores/navigation";
+  import { selected, search, refreshSignal } from "./lib/stores/navigation";
   import {
     settings,
     backdrop,
@@ -60,10 +61,35 @@
     const chosen = await selectRoot();
     if (chosen) {
       selected.set(null); // close any open photographer view before re-scanning
+      search.set(""); // search is cleared when the folder changes
       root.set(chosen);
     }
   }
+
+  // ⌘R re-runs the active view's scan in place (the view re-fetches silently —
+  // no "Scanning…" flash). preventDefault stops the webview's own reload.
+  function onKeydown(e: KeyboardEvent) {
+    if (e.metaKey && e.key === "r") {
+      e.preventDefault();
+      refreshSignal.update((n) => n + 1);
+    }
+  }
+
+  // Auto-rescan on focus return, but only after a real absence (>5s) so a quick
+  // tab-away doesn't re-walk the tree. blurAt is null while focused.
+  let blurAt: number | null = null;
+  function onBlur() {
+    blurAt = Date.now();
+  }
+  function onFocus() {
+    if (blurAt !== null && Date.now() - blurAt > 5000) {
+      refreshSignal.update((n) => n + 1);
+    }
+    blurAt = null;
+  }
 </script>
+
+<svelte:window onkeydown={onKeydown} onfocus={onFocus} onblur={onBlur} />
 
 <!-- Stands in for the hidden-inset titlebar; drag anywhere along the top. -->
 <div class="titlebar" data-tauri-drag-region></div>
@@ -82,10 +108,24 @@
           >
           <span class="path" title={$selected.name}>{$selected.name}</span>
         </div>
-        <TileSizeSlider view="photographer" />
+        <div class="group">
+          <button
+            title="Reveal this photographer's folder in Finder"
+            onclick={() => revealInFinder(`${$root}/${$selected!.relPath}`)}
+            >Reveal in Finder</button
+          >
+          <TileSizeSlider view="photographer" />
+        </div>
       {:else}
         <span class="path" title={$root}>{$root}</span>
         <div class="group">
+          <input
+            class="search"
+            type="search"
+            placeholder="Search photographers…"
+            aria-label="Search photographers"
+            bind:value={$search}
+          />
           <TileSizeSlider view="root" />
           <button onclick={change}>Change folder…</button>
         </div>
@@ -149,6 +189,27 @@
 
   .bar button {
     flex: none;
+  }
+
+  .search {
+    flex: none;
+    width: 12rem;
+    padding: 0.35rem 0.6rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0.4rem;
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--fg);
+    font: inherit;
+    font-size: 0.85rem;
+  }
+
+  .search::placeholder {
+    color: var(--fg-dim);
+  }
+
+  .search:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
   }
 
   /* Keeps related header items together so .bar's space-between still pushes

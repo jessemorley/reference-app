@@ -11,10 +11,12 @@ vi.mock("../ipc", () => ({
   ensureThumb: vi.fn(),
 }));
 import { listPhotographers, ensureThumb } from "../ipc";
+import { search } from "../stores/navigation";
 
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(ensureThumb).mockResolvedValue("asset://thumb");
+  search.set(""); // module-level singleton; reset between tests
 });
 
 describe("PhotographerGrid", () => {
@@ -28,8 +30,8 @@ describe("PhotographerGrid", () => {
 
   it("renders a tile per photographer and thumbnails each cover", async () => {
     const photographers: Photographer[] = [
-      { name: "Abe", relPath: "Abe", coverPath: "/root/Abe/a.jpg" },
-      { name: "Zed", relPath: "Zed", coverPath: null },
+      { name: "Abe", relPath: "Abe", coverPath: "/root/Abe/a.jpg", pinned: false },
+      { name: "Zed", relPath: "Zed", coverPath: null, pinned: false },
     ];
     vi.mocked(listPhotographers).mockResolvedValue(photographers);
 
@@ -49,7 +51,7 @@ describe("PhotographerGrid", () => {
 
   it("calls onselect with the photographer when its tile is clicked", async () => {
     const photographers: Photographer[] = [
-      { name: "Abe", relPath: "Abe", coverPath: "/root/Abe/a.jpg" },
+      { name: "Abe", relPath: "Abe", coverPath: "/root/Abe/a.jpg", pinned: false },
     ];
     vi.mocked(listPhotographers).mockResolvedValue(photographers);
     const onselect = vi.fn();
@@ -62,6 +64,26 @@ describe("PhotographerGrid", () => {
 
     expect(onselect).toHaveBeenCalledTimes(1);
     expect(onselect).toHaveBeenCalledWith(photographers[0]);
+  });
+
+  it("filters tiles by the search query and shows a no-match state", async () => {
+    const photographers: Photographer[] = [
+      { name: "Ansel", relPath: "Ansel", coverPath: "/root/Ansel/a.jpg", pinned: false },
+      { name: "Vivian", relPath: "Vivian", coverPath: "/root/Vivian/v.jpg", pinned: false },
+    ];
+    vi.mocked(listPhotographers).mockResolvedValue(photographers);
+
+    render(PhotographerGrid, { root: "/root", onselect: vi.fn() });
+    await screen.findByText("Ansel");
+
+    // Case-insensitive substring → only Vivian matches "viv".
+    search.set("viv");
+    expect(await screen.findByText("Vivian")).toBeInTheDocument();
+    expect(screen.queryByText("Ansel")).not.toBeInTheDocument();
+
+    // No match → empty state quoting the query.
+    search.set("zzz");
+    expect(await screen.findByText(/No photographers match/)).toBeInTheDocument();
   });
 
   it("shows an empty message when no photographers have images", async () => {

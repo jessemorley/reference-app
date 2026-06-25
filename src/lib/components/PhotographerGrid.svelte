@@ -1,7 +1,9 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { listPhotographers } from "../ipc";
   import type { Photographer } from "../types";
   import { settings } from "../stores/settings";
+  import { search, refreshSignal } from "../stores/navigation";
   import Thumb from "./Thumb.svelte";
 
   let {
@@ -33,6 +35,29 @@
       cancelled = true;
     };
   });
+
+  // Silent re-scan on ⌘R / focus return (Slice 10): re-fetch and swap the list
+  // in place without nulling it, so the grid keeps its content (and scroll)
+  // rather than flashing "Scanning…". untrack keeps `root` out of this effect's
+  // deps — only the bumped signal should retrigger it, not a folder change
+  // (that's the loading effect's job). The initial 0 is a no-op.
+  $effect(() => {
+    if ($refreshSignal === 0) return;
+    untrack(() => {
+      listPhotographers(root)
+        .then((list) => {
+          photographers = list;
+        })
+        .catch(() => {});
+    });
+  });
+
+  // Live, case-insensitive substring filter over the loaded list (no IPC).
+  let shown = $derived.by(() => {
+    const list = photographers ?? [];
+    const q = $search.trim().toLowerCase();
+    return q ? list.filter((p) => p.name.toLowerCase().includes(q)) : list;
+  });
 </script>
 
 <div class="scroller">
@@ -42,9 +67,11 @@
     <p class="state">Scanning…</p>
   {:else if photographers.length === 0}
     <p class="state">No photographers with images in this folder.</p>
+  {:else if shown.length === 0}
+    <p class="state">No photographers match “{$search}”.</p>
   {:else}
     <ul class="grid" style="--tile-min: {$settings.root}px">
-      {#each photographers as p (p.relPath)}
+      {#each shown as p (p.relPath)}
         <li>
           <button
             class="tile"

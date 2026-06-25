@@ -8,8 +8,11 @@ mod thumbs;
 
 /// Key under which the Photography Root path is persisted, and the store file
 /// that holds it (and, in later slices, cover pins — see ADR-0002).
-const STORE_FILE: &str = "settings.json";
+pub(crate) const STORE_FILE: &str = "settings.json";
 const ROOT_KEY: &str = "root";
+/// Store key for the cover-pin map (`relPath -> absolute image path`), read by
+/// `scan::list_photographers` and written by `set_cover` (ADR-0002).
+pub(crate) const COVERS_KEY: &str = "covers";
 
 /// Open a native folder picker; on selection, persist the chosen Photography
 /// Root and return its absolute path. Returns `None` if the user cancels.
@@ -67,6 +70,38 @@ fn set_setting(app: tauri::AppHandle, key: String, value: serde_json::Value) {
     }
 }
 
+/// Pin (or, with `img_path: None`, un-pin) a Photographer's cover image. Pins
+/// live in the central store keyed by the folder's path relative to the Root
+/// (ADR-0002); `list_photographers` resolves them, so there's no `get_cover`.
+#[tauri::command]
+fn set_cover(app: tauri::AppHandle, rel_path: String, img_path: Option<String>) {
+    let Ok(store) = app.store(STORE_FILE) else {
+        return;
+    };
+    let mut covers = store
+        .get(COVERS_KEY)
+        .and_then(|v| v.as_object().cloned())
+        .unwrap_or_default();
+    match img_path {
+        Some(path) => {
+            covers.insert(rel_path, serde_json::Value::String(path));
+        }
+        None => {
+            covers.remove(&rel_path);
+        }
+    }
+    store.set(COVERS_KEY, serde_json::Value::Object(covers));
+    let _ = store.save();
+}
+
+/// Reveal a file or folder in Finder (selecting it in its parent). Used by the
+/// image-tile menu (the image file) and the photographer-view header (the
+/// folder) — Slice 10.
+#[tauri::command]
+fn reveal_in_finder(path: String) {
+    let _ = tauri_plugin_opener::reveal_item_in_dir(path);
+}
+
 /// Widen the asset-protocol scope to serve full-res Reference images from
 /// anywhere under `root`. The static scope in tauri.conf.json starts empty;
 /// the Root is user-chosen at runtime, so we grant it here (on selection, and
@@ -99,6 +134,8 @@ pub fn run() {
             get_root,
             get_setting,
             set_setting,
+            set_cover,
+            reveal_in_finder,
             scan::list_photographers,
             scan::list_images,
             thumbs::ensure_thumb,
