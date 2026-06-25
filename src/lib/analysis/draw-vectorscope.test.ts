@@ -20,14 +20,15 @@ describe("densityToBrightness", () => {
     expect(bright50).toBeGreaterThan(bright5);
   });
 
-  it("noise cell (1% of max) is under 20% brightness — stays dim on dark bg", () => {
-    // pow(0.01, 0.4) ≈ 0.158: noise near-invisible; 8px blur spreads it further.
-    expect(densityToBrightness(10, 1000)).toBeLessThan(0.2);
+  it("noise cell (1% of max) is under 10% brightness — nearly invisible on dark bg", () => {
+    // sqrt(0.01) = 0.1: noise stays dim so low-density chroma doesn't clutter the scope.
+    expect(densityToBrightness(10, 1000)).toBeCloseTo(0.1, 5);
   });
 
-  it("dense cell (50% of max) is visibly bright", () => {
-    // pow(0.5, 0.4) ≈ 0.758
-    expect(densityToBrightness(500, 1000)).toBeGreaterThan(0.7);
+  it("sqrt scale: 100× more density is 10× brighter (not 2× as with log)", () => {
+    const b1 = densityToBrightness(10, 1000);   // sqrt(0.01) = 0.1
+    const b100 = densityToBrightness(1000, 1000); // sqrt(1) = 1.0
+    expect(b100 / b1).toBeCloseTo(10, 1);
   });
 });
 

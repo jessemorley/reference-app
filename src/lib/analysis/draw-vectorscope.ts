@@ -13,17 +13,13 @@ const BG = "#141414";
 const GRATICULE = "rgba(255, 255, 255, 0.12)";
 const HOVER = "#ffa233"; // amber, shared with histogram's hover colour
 
-// ponytail: tuning knobs — raise BLUR_PX for smoother blobs (costs sharpness),
-// lower GAIN_EXP toward 0.3 for more visible dim trails (costs noise floor).
-const BLUR_PX = 8;
-const GAIN_EXP = 0.4;
-
-/** Power-scale brightness for a density count: 0 → 0, maxCount → 1.
- *  Exponent < 1 boosts mid-range density so colour trails are visible while
- *  cells at <1% of max stay near-invisible on the dark background. Pure. */
+/** Sqrt-scale brightness for a density count: 0 → 0, maxCount → 1.
+ *  sqrt gives a 7:1 ratio between max and a 2%-of-max cell (vs log's 2:1),
+ *  so noise cells (~1% of max) fall to <10% brightness and vanish on the
+ *  dark background, while hot clusters stay near full brightness. Pure. */
 export function densityToBrightness(count: number, maxCount: number): number {
   if (count === 0 || maxCount === 0) return 0;
-  return Math.pow(count / maxCount, GAIN_EXP);
+  return Math.sqrt(count / maxCount);
 }
 
 /** sRGB [0..255] for the colour that cell (gx, gy) represents — reconstructed
@@ -69,7 +65,7 @@ export function drawVectorscope(
   const cellW = w / size;
   const cellH = h / size;
   ctx.globalCompositeOperation = "lighter";
-  ctx.filter = `blur(${BLUR_PX}px)`;
+  ctx.filter = "blur(3px)";
   for (let gy = 0; gy < size; gy++) {
     for (let gx = 0; gx < size; gx++) {
       const count = scope.grid[gy * size + gx];
