@@ -13,10 +13,11 @@ vi.mock("./lib/ipc", () => ({
   // setTileSize. Stub both so App's branching stays the only thing under test.
   getTileSizes: vi.fn(),
   setTileSize: vi.fn(),
-  // App also hydrates the persisted Backdrop and Inspector preference on mount;
-  // stub them too.
+  // App also hydrates the persisted Backdrop, Inspector and palette-k
+  // preferences on mount; stub them too.
   getBackdrop: vi.fn(),
   getInspectorOpen: vi.fn(),
+  getPaletteK: vi.fn(),
   // The loaded shell mounts PhotographerGrid, which scans on mount; stub it so
   // App's branching stays the only thing under test.
   listPhotographers: vi.fn(),
@@ -27,6 +28,7 @@ import {
   getTileSizes,
   getBackdrop,
   getInspectorOpen,
+  getPaletteK,
   listPhotographers,
 } from "./lib/ipc";
 
@@ -36,6 +38,7 @@ beforeEach(() => {
   vi.mocked(getTileSizes).mockResolvedValue({ root: null, photographer: null });
   vi.mocked(getBackdrop).mockResolvedValue(null);
   vi.mocked(getInspectorOpen).mockResolvedValue(null);
+  vi.mocked(getPaletteK).mockResolvedValue(null);
   // The root store is a module-level singleton; reset it between tests.
   root.set(null);
   // navigation.selected is likewise module-level; start each test on the grid.

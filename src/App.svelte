@@ -3,6 +3,8 @@
   import {
     getBackdrop,
     getInspectorOpen,
+    getPaletteK,
+    setPaletteK,
     getRoot,
     getTileSizes,
     selectRoot,
@@ -15,6 +17,8 @@
     asBackdrop,
     inspectorOpen,
     asInspectorOpen,
+    paletteK,
+    asPaletteK,
   } from "./lib/stores/settings";
   import RootPicker from "./lib/components/RootPicker.svelte";
   import PhotographerGrid from "./lib/components/PhotographerGrid.svelte";
@@ -27,12 +31,13 @@
   onMount(async () => {
     // Hydrate persisted state before first paint of the shell. Tile sizes keep
     // their defaults for any view the user hasn't adjusted yet.
-    const [persistedRoot, tiles, savedBackdrop, savedInspectorOpen] =
+    const [persistedRoot, tiles, savedBackdrop, savedInspectorOpen, savedPaletteK] =
       await Promise.all([
         getRoot(),
         getTileSizes(),
         getBackdrop(),
         getInspectorOpen(),
+        getPaletteK(),
       ]);
     settings.update((s) => ({
       root: tiles.root ?? s.root,
@@ -40,6 +45,13 @@
     }));
     backdrop.set(asBackdrop(savedBackdrop));
     inspectorOpen.set(asInspectorOpen(savedInspectorOpen));
+    const k = asPaletteK(savedPaletteK);
+    paletteK.set(k);
+    // Heal a divergent stored value (out-of-range or fractional from an older
+    // build / hand-edit): write the coerced k back so it stops being re-clamped
+    // every launch. Skip when never set (null) — defaults aren't persisted until
+    // the user touches the control, matching the other prefs.
+    if (savedPaletteK !== null && savedPaletteK !== k) void setPaletteK(k);
     root.set(persistedRoot);
     ready = true;
   });

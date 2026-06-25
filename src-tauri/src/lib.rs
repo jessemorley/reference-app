@@ -102,7 +102,8 @@ pub fn run() {
             scan::list_photographers,
             scan::list_images,
             thumbs::ensure_thumb,
-            analysis::compute_histogram
+            analysis::compute_histogram,
+            analysis::extract_palette
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

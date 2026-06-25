@@ -297,11 +297,45 @@ history — `Slice N` / `Merge slice N` commits; these markers mirror it.)
   over RGB), hover line tracks the eyedropper, HEIC/AVIF show the unavailable state
   without breaking the readout.
 
-### 9. Colour-scheme extractor ⬜  *(Rust, ADR-0001)*
-- `extract_palette`: decode → downsample (~thumbnail size) → k-means in CIELAB →
-  swatches sorted by weight desc. `k` selector 3–8, default 5.
-- `PaletteBar.svelte`: single proportional bar, segment width = weight. Click a
-  segment copies its hex; hover reveals hex/RGB/L; wide segments show hex inline.
+### 9. Colour-scheme extractor ✅  *(Rust, ADR-0001)*
+- `extract_palette`: decode → downsample (~128px, `PALETTE_SAMPLE`) → k-means in
+  CIELAB → swatches sorted by weight desc. `k` selector 3–8, default 5 (clamped in
+  Rust). Clustering in Lab (not RGB) so swatches split on perceptual difference.
+  Empty clusters are dropped, so a flat image yields fewer than `k` swatches. Same
+  blocking-pool decode + decode-failure path as `compute_histogram` (HEIC/AVIF →
+  unavailable).
+- **Salience weighting** (`salience`, `CHROMA_BOOST`/`CHROMA_REF` knobs): pixels are
+  weighted `1 + boost·chroma`, so a small but vivid accent (a red panel on an
+  otherwise neutral scene) counts for several plain pixels. This drives the centroid
+  (it stays vivid instead of muddying to an area average) and the reported `weight`
+  (its bar segment reads as visible, not a sliver). Pure area weighting
+  under-represented exactly the eye-catching colours — `screenshots/palette1.png`/
+  `palette2.png`.
+- **Greedy farthest-first seeding** (`seed_centroids`, deterministic — no RNG): seed
+  0 is the salience-weighted mean (anchors the bulk), then each next seed is the
+  pixel maximising `weight·distance²`. This *reliably* grabs the most
+  chromatically-isolated regions, where probability-proportional k-means++ could
+  skip a small hue-isolated accent on an unlucky draw — the blue lid/necklace in
+  `screenshots/pallette3.png`/`pallette4.png` that earlier seeding missed.
+- **Over-segment then merge for distinct colours** (`PALETTE_OVERSEG`,
+  `merge_clusters`, `merge_dist2`, `SHADE_FOLD`): k-means runs with `k·OVERSEG`
+  clusters (k-means can't merge two seeds, so a highlight keeps its own slot from
+  the body of one object), then the closest pairs are agglomeratively merged back
+  to `k`. The merge metric is **hue-aware**: it splits the Lab gap into ΔL / ΔC
+  (chroma magnitude) / ΔH (hue) and folds ΔL+ΔC for *saturated* pairs (so a bright
+  and a dark red — same hue — fuse) while leaving neutrals (black/grey/white,
+  ~0 chroma) unfolded so they stay distinct. So the `k` swatches are genuinely
+  different colours, not two/three shades of one — the pallette3 teapot reds.
+- `PaletteBar.svelte`: single proportional bar, segment `flex-grow` = weight. Click
+  a segment copies its hex (`navigator.clipboard`, brief "copied" flash); hover /
+  focus reveals hex/RGB/L (`L` via the shared `luminance`) + % below the bar; wide
+  segments show their hex inline (contrast ink by luma).
+- Palette has its own compute `$effect` in `Inspector.svelte` (keyed on image +
+  `k`) so changing `k` recomputes the palette alone without re-decoding the
+  histogram; same ~120ms debounce / cancellation / loading-ready-unavailable states.
+- **Testing:** Rust — Lab round-trips within a byte; a solid image collapses to one
+  full-weight swatch; a two-colour split yields two ~0.5-weight swatches summing to
+  1. JS contrast/threshold helpers reuse the already-tested `luminance`.
 - **Done when:** palette reads true to the image, bar is proportional, copy works,
   changing k recomputes instantly.
 

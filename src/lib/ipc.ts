@@ -2,7 +2,7 @@
 // Add a wrapper here as each backend command lands in its slice.
 
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
-import type { Category, Histogram, Photographer, RefImage } from "./types";
+import type { Category, Histogram, Photographer, RefImage, Swatch } from "./types";
 import type { TileView } from "./stores/settings";
 
 /** Open the folder picker; persists and returns the chosen Photography Root,
@@ -93,6 +93,14 @@ export function computeHistogram(path: string): Promise<Histogram> {
   return invoke<Histogram>("compute_histogram", { imgPath: path });
 }
 
+/** Up to `k` dominant colours for the image at `path` (k-means in CIELAB,
+ *  Slice 9), sorted by weight desc. `k` is clamped to 3..8 in Rust. Rejects on
+ *  the same decode failures as `computeHistogram` (HEIC/AVIF & broken files →
+ *  Inspector "unavailable" state). */
+export function extractPalette(path: string, k: number): Promise<Swatch[]> {
+  return invoke<Swatch[]>("extract_palette", { imgPath: path, k });
+}
+
 const BACKDROP_KEY = "prefs.backdrop";
 
 /** The persisted Backdrop token, or null if never set (caller applies its
@@ -119,4 +127,17 @@ export function getInspectorOpen(): Promise<boolean | null> {
 /** Persist the Inspector open/closed preference. */
 export function setInspectorOpen(open: boolean): Promise<void> {
   return invoke("set_setting", { key: INSPECTOR_OPEN_KEY, value: open });
+}
+
+const PALETTE_K_KEY = "prefs.paletteK";
+
+/** The persisted palette colour-count (Slice 9), or null if never set (caller
+ *  applies its default). */
+export function getPaletteK(): Promise<number | null> {
+  return invoke<number | null>("get_setting", { key: PALETTE_K_KEY });
+}
+
+/** Persist the palette colour-count. */
+export function setPaletteK(k: number): Promise<void> {
+  return invoke("set_setting", { key: PALETTE_K_KEY, value: k });
 }

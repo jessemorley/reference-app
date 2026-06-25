@@ -70,3 +70,23 @@ export const inspectorOpen = writable<boolean>(DEFAULT_INSPECTOR_OPEN);
 export function asInspectorOpen(value: unknown): boolean {
   return typeof value === "boolean" ? value : DEFAULT_INSPECTOR_OPEN;
 }
+
+/** Number of colours the palette extractor returns (Slice 9). Global + durable
+ *  so the choice survives paging, remounting the Inspector, and relaunch — the
+ *  Inspector remounts per open/page, so a component-local value would reset to
+ *  the default each time. Range matches the `extract_palette` clamp; default 5.
+ *  Hydrated from the backend store on startup (App.svelte). */
+export const PALETTE_K_MIN = 3;
+export const PALETTE_K_MAX = 8;
+export const DEFAULT_PALETTE_K = 5;
+
+export const paletteK = writable<number>(DEFAULT_PALETTE_K);
+
+/** Clamp/round an arbitrary persisted value into the valid k range, defaulting
+ *  when it's null or hand-edited to junk. */
+export function asPaletteK(value: unknown): number {
+  const n = typeof value === "number" ? Math.round(value) : NaN;
+  return Number.isFinite(n)
+    ? Math.min(PALETTE_K_MAX, Math.max(PALETTE_K_MIN, n))
+    : DEFAULT_PALETTE_K;
+}

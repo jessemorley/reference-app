@@ -7,11 +7,13 @@
   // over the image, so the whole image stays hoverable for the Slice-7
   // eyedropper. Lays out three regions — readout, histogram, palette — as inert
   // stubs for now.
-  import type { Histogram as HistogramData, RefImage } from "../types";
+  import type { Histogram as HistogramData, RefImage, Swatch } from "../types";
   import { reading } from "../stores/eyedropper";
-  import { computeHistogram } from "../ipc";
+  import { paletteK, PALETTE_K_MIN, PALETTE_K_MAX } from "../stores/settings";
+  import { computeHistogram, extractPalette, setPaletteK } from "../ipc";
   import { CHANNELS } from "../analysis/draw-histogram";
   import Histogram from "./Histogram.svelte";
+  import PaletteBar from "./PaletteBar.svelte";
 
   let { image }: { image: RefImage } = $props();
 
@@ -22,13 +24,20 @@
   let histogram = $state<HistogramData | null>(null);
   let histogramStatus = $state<"loading" | "ready" | "unavailable">("loading");
 
+  // Palette swatch count (Slice 9), 3–8. A global durable preference (the
+  // Inspector remounts per open/page, so a local value would reset); changing it
+  // recomputes the palette (its $effect depends on `$paletteK`) without touching
+  // the histogram, and persists to the backend store.
+  let palette = $state<Swatch[] | null>(null);
+  let paletteStatus = $state<"loading" | "ready" | "unavailable">("loading");
+
   // Compute-on-open seam. Re-runs whenever the open image changes — on mount
   // (Inspector opened for this image) and on every page to a new image while
   // open. Clears to the loading state immediately, then debounces the Rust call
   // so rapid paging doesn't spawn a decode per image; the `cancelled` flag drops
   // a stale result when paging outruns an in-flight call (the same pattern
-  // PhotographerView uses for list_images). Slice 9's extract_palette joins here.
-  // Slice 7's eyedropper is local canvas work and doesn't go through this seam.
+  // PhotographerView uses for list_images). Slice 7's eyedropper is local canvas
+  // work and doesn't go through this seam.
   $effect(() => {
     const path = image.path;
     histogram = null;
@@ -52,6 +61,42 @@
       clearTimeout(timer);
     };
   });
+
+  // Palette (Slice 9) has its own seam: it depends on `k` as well as the image,
+  // so a separate $effect lets changing k recompute the palette alone without
+  // re-decoding for the histogram. Same debounce / cancellation / unavailable
+  // handling as above (one decode-failure path per tool).
+  $effect(() => {
+    const path = image.path;
+    const kk = $paletteK;
+    palette = null;
+    paletteStatus = "loading";
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const result = await extractPalette(path, kk);
+        if (!cancelled) {
+          palette = result;
+          paletteStatus = "ready";
+        }
+      } catch {
+        if (!cancelled) paletteStatus = "unavailable";
+      }
+    }, COMPUTE_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  });
+
+  // Step the palette colour-count by ±1, clamped to the valid range, and persist.
+  function stepK(delta: number) {
+    const next = Math.min(PALETTE_K_MAX, Math.max(PALETTE_K_MIN, $paletteK + delta));
+    if (next !== $paletteK) {
+      paletteK.set(next);
+      void setPaletteK(next);
+    }
+  }
 </script>
 
 <aside class="inspector" aria-label="Inspector">
@@ -79,8 +124,30 @@
     <Histogram {histogram} status={histogramStatus} />
   </section>
   <section class="region">
-    <h2 class="label">Palette</h2>
-    <div class="stub palette" aria-hidden="true"></div>
+    <div class="region-head">
+      <h2 class="label">Palette</h2>
+      <div class="k">
+        <span class="k-label">Colours</span>
+        <button
+          class="step"
+          onclick={() => stepK(-1)}
+          disabled={$paletteK <= PALETTE_K_MIN}
+          aria-label="Fewer palette colours"
+        >
+          −
+        </button>
+        <span class="k-value" aria-live="polite">{$paletteK}</span>
+        <button
+          class="step"
+          onclick={() => stepK(1)}
+          disabled={$paletteK >= PALETTE_K_MAX}
+          aria-label="More palette colours"
+        >
+          +
+        </button>
+      </div>
+    </div>
+    <PaletteBar {palette} status={paletteStatus} />
   </section>
 </aside>
 
@@ -110,6 +177,58 @@
     gap: 0.5rem;
   }
 
+  /* Region header with an inline control (the palette's colour-count stepper)
+     pushed to the right of the label. */
+  .region-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* Colour-count stepper: a label, then − / value / + in a compact cluster. */
+  .k {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .k-label {
+    font-size: 0.7rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--fg-dim);
+  }
+  .k-value {
+    min-width: 1ch;
+    text-align: center;
+    font-size: 0.85rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--fg);
+  }
+
+  /* Small square +/- buttons; the glyph is centred and the hit area stays tidy. */
+  .step {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.3rem;
+    height: 1.3rem;
+    padding: 0;
+    font-size: 0.95rem;
+    line-height: 1;
+    color: var(--fg);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0.3rem;
+    cursor: pointer;
+  }
+  .step:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12);
+  }
+  .step:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
   .label {
     margin: 0;
     font-size: 0.7rem;
@@ -117,12 +236,6 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--fg-dim);
-  }
-
-  .stub {
-    margin: 0;
-    color: var(--fg-dim);
-    font-size: 0.85rem;
   }
 
   /* Live readout on one row: a small colour chip beside the four channel values.
@@ -169,13 +282,5 @@
      histogram strokes); L stays neutral. */
   .channels .l {
     color: var(--fg);
-  }
-
-  /* Empty placeholder so the layout reads true before the palette tool lands. */
-  .stub.palette {
-    height: 2.5rem;
-    border: 1px dashed rgba(255, 255, 255, 0.12);
-    border-radius: 0.4rem;
-    background: rgba(255, 255, 255, 0.03);
   }
 </style>
