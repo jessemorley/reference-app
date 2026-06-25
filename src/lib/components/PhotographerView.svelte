@@ -348,9 +348,50 @@
   }
 
   .cell {
+    position: relative;
     aspect-ratio: 4 / 5;
     overflow: hidden;
     background: rgba(255, 255, 255, 0.04);
+  }
+
+  /* Resting dim that fades out on hover, with a subtle zoom of the image —
+     cropped by the cell's overflow:hidden. Hover-only delight; keyboard users
+     get the focus-visible outline as their affordance instead. */
+  .cell::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: #000;
+    opacity: 0.1;
+    pointer-events: none;
+    transition: opacity 300ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .cell :global(img),
+  .cell :global(.placeholder) {
+    transform-origin: center;
+    transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .cell:hover::after {
+    opacity: 0;
+  }
+
+  .cell:hover :global(img),
+  .cell:hover :global(.placeholder) {
+    transform: scale(1.04);
+  }
+
+  /* The growing transform is the motion-sickness trigger; keep the overlay fade. */
+  @media (prefers-reduced-motion: reduce) {
+    .cell :global(img),
+    .cell :global(.placeholder) {
+      transition: none;
+    }
+    .cell:hover :global(img),
+    .cell:hover :global(.placeholder) {
+      transform: none;
+    }
   }
 
   /* The whole tile is the open affordance; reset button chrome to a bare,
