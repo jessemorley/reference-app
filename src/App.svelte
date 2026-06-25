@@ -155,7 +155,9 @@
           >
             <FolderOpen size={15} aria-hidden="true" />
           </button>
-          <TileSizeSlider view="photographer" />
+          {#if $openIndex === null}
+            <TileSizeSlider view="photographer" />
+          {/if}
         </div>
       {:else}
         <div class="search-wrap">
