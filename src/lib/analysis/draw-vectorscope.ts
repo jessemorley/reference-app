@@ -41,13 +41,15 @@ export function cellColor(gx: number, gy: number, size: number): [number, number
 
 /** Draw the Cb/Cr vectorscope into `ctx` (sized `w`×`h` in CSS px).
  *  Caller has already applied any device-pixel-ratio transform.
- *  `reading` null ⇒ no hover crosshair. */
+ *  `reading` null ⇒ no hover crosshair.
+ *  `zoom` 2 doubles every signal's distance from centre (Resolve-style). */
 export function drawVectorscope(
   ctx: CanvasRenderingContext2D,
   scope: Vectorscope,
   w: number,
   h: number,
-  reading: Reading | null
+  reading: Reading | null,
+  zoom: 1 | 2 = 1
 ) {
   ctx.clearRect(0, 0, w, h);
 
@@ -72,14 +74,24 @@ export function drawVectorscope(
   // instead of painting over it. Sub-pixel cells at 512×512 share device
   // pixels at fractional positions, so adjacent dense cells accumulate and
   // blow out toward white — headroom that source-over can't provide.
-  const cellW = w / size;
-  const cellH = h / size;
+  //
+  // At zoom=2 every cell's Cb/Cr is scaled 2× from centre before mapping to
+  // canvas coordinates, so cells beyond ±0.25 go off-canvas and are skipped.
+  const baseW = w / size;
+  const baseH = h / size;
+  const zW = Math.ceil(baseW * zoom);
+  const zH = Math.ceil(baseH * zoom);
   ctx.globalCompositeOperation = "lighter";
   for (const [gx, gy, count] of cells) {
+    const cb = (gx + 0.5) / size - 0.5;
+    const cr = (gy + 0.5) / size - 0.5;
+    const px = (cb * zoom + 0.5) * w - zW / 2;
+    const py = (0.5 - cr * zoom) * h - zH / 2;
+    if (px + zW < 0 || px > w || py + zH < 0 || py > h) continue;
     const bright = Math.min(1, densityToBrightness(count, maxCount) * GAIN);
     const [r, g, b] = cellColor(gx, gy, size);
     ctx.fillStyle = `rgba(${r},${g},${b},${bright})`;
-    ctx.fillRect(gx * cellW, (size - 1 - gy) * cellH, Math.ceil(cellW), Math.ceil(cellH));
+    ctx.fillRect(px, py, zW, zH);
   }
   ctx.globalCompositeOperation = "source-over";
 
@@ -96,7 +108,7 @@ export function drawVectorscope(
   ctx.lineTo(w, h / 2 + 0.5);
   ctx.stroke();
 
-  // Amber crosshair at the eyedropper's Cb/Cr position
+  // Amber crosshair at the eyedropper's Cb/Cr position (zoom-scaled)
   if (reading) {
     const rn = reading.r / 255;
     const gn = reading.g / 255;
@@ -104,8 +116,8 @@ export function drawVectorscope(
     const y = 0.2126 * rn + 0.7152 * gn + 0.0722 * bn;
     const cb = (bn - y) / 1.8556;
     const cr = (rn - y) / 1.5748;
-    const cx = (cb + 0.5) * w;
-    const cy = (0.5 - cr) * h; // flip: positive Cr toward top
+    const cx = (cb * zoom + 0.5) * w;
+    const cy = (0.5 - cr * zoom) * h;
     const arm = 6;
     ctx.strokeStyle = HOVER;
     ctx.lineWidth = 1;
