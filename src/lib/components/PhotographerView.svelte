@@ -247,7 +247,7 @@
           type="button"
           role="menuitem"
           onclick={() => {
-            void revealInFinder(menu!.img.path);
+            void revealInFinder(menu!.img.path).catch(() => {});
             menu = null;
           }}
         >

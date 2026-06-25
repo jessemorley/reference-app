@@ -157,7 +157,7 @@
             class="icon-btn"
             title="Reveal this photographer's folder in Finder"
             aria-label="Reveal this photographer's folder in Finder"
-            onclick={() => revealInFinder(`${$root}/${$selected!.relPath}`)}
+            onclick={() => revealInFinder(`${$root}/${$selected!.relPath}`).catch(() => {})}
           >
             <FolderOpen size={15} aria-hidden="true" />
           </button>
