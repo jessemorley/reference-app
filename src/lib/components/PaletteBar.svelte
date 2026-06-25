@@ -20,6 +20,16 @@
   // Index of the just-copied segment, for a brief "copied" flash.
   let copied = $state<number | null>(null);
 
+  // This component isn't remounted on paging (the Inspector renders it un-keyed),
+  // so clear the hover/copied state whenever the palette changes — otherwise the
+  // previous image's swatch lingers in the readout (or a stale "copied" flash
+  // lands on an unrelated segment) until the cursor moves.
+  $effect(() => {
+    palette;
+    active = null;
+    copied = null;
+  });
+
   // Black text on light swatches, white on dark — by the same Rec.709 luma the
   // eyedropper/histogram use, so the inline hex stays legible.
   const ink = (s: Swatch) => (luminance(s.r, s.g, s.b) > 140 ? "#000" : "#fff");

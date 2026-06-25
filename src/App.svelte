@@ -4,6 +4,7 @@
     getBackdrop,
     getInspectorOpen,
     getPaletteK,
+    setPaletteK,
     getRoot,
     getTileSizes,
     selectRoot,
@@ -44,7 +45,13 @@
     }));
     backdrop.set(asBackdrop(savedBackdrop));
     inspectorOpen.set(asInspectorOpen(savedInspectorOpen));
-    paletteK.set(asPaletteK(savedPaletteK));
+    const k = asPaletteK(savedPaletteK);
+    paletteK.set(k);
+    // Heal a divergent stored value (out-of-range or fractional from an older
+    // build / hand-edit): write the coerced k back so it stops being re-clamped
+    // every launch. Skip when never set (null) — defaults aren't persisted until
+    // the user touches the control, matching the other prefs.
+    if (savedPaletteK !== null && savedPaletteK !== k) void setPaletteK(k);
     root.set(persistedRoot);
     ready = true;
   });

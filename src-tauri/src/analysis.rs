@@ -543,8 +543,9 @@ mod tests {
     fn two_shades_of_one_hue_collapse_freeing_a_slot_for_a_distinct_hue() {
         // The pallette3 case: a region in two shades of red (same hue, different
         // lightness) should be ONE swatch, not two, so a small distinct hue (blue)
-        // still fits within k. Chroma-primary distance (L_WEIGHT < 1) folds the
-        // shades together; full-weight L would seed both reds before reaching blue.
+        // still fits within k. The over-segment-then-merge pipeline folds the two
+        // reds together in `merge_dist2` (SHADE_FOLD shrinks the ΔL/ΔC terms for
+        // saturated pairs), while distinct hues stay apart.
         let mut img = RgbImage::new(30, 30);
         let paint = |img: &mut RgbImage, rows: std::ops::Range<u32>, c: [u8; 3]| {
             for y in rows {
