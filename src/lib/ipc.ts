@@ -173,18 +173,6 @@ export function setInspectorOpen(open: boolean): Promise<void> {
   return invoke("set_setting", { key: INSPECTOR_OPEN_KEY, value: open });
 }
 
-const BIO_OPEN_KEY = "prefs.bioOpen";
-
-/** The persisted Bio bar open/closed preference, or null if never set. */
-export function getBioOpen(): Promise<boolean | null> {
-  return invoke<boolean | null>("get_setting", { key: BIO_OPEN_KEY });
-}
-
-/** Persist the Bio bar open/closed preference. */
-export function setBioOpen(open: boolean): Promise<void> {
-  return invoke("set_setting", { key: BIO_OPEN_KEY, value: open });
-}
-
 const PALETTE_K_KEY = "prefs.paletteK";
 
 /** The persisted palette colour-count (Slice 9), or null if never set (caller

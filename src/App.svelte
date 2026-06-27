@@ -2,8 +2,6 @@
   import { onMount } from "svelte";
   import {
     getBackdrop,
-    getBioOpen,
-    setBioOpen,
     getInspectorOpen,
     getPaletteK,
     setPaletteK,
@@ -11,6 +9,7 @@
     getTileSizes,
     selectRoot,
     revealInFinder,
+    openUrl,
   } from "./lib/ipc";
   import { root } from "./lib/stores/root";
   import {
@@ -25,8 +24,6 @@
     settings,
     backdrop,
     asBackdrop,
-    bioOpen,
-    asBioOpen,
     inspectorOpen,
     asInspectorOpen,
     paletteK,
@@ -34,14 +31,15 @@
   } from "./lib/stores/settings";
   import Folder from "@lucide/svelte/icons/folder";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
+  import Globe from "@lucide/svelte/icons/globe";
   import House from "@lucide/svelte/icons/house";
+  import AtSign from "@lucide/svelte/icons/at-sign";
   import Search from "@lucide/svelte/icons/search";
   import User from "@lucide/svelte/icons/user";
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import RootPicker from "./lib/components/RootPicker.svelte";
   import PhotographerGrid from "./lib/components/PhotographerGrid.svelte";
   import PhotographerView from "./lib/components/PhotographerView.svelte";
-  import PhotoBio from "./lib/components/PhotoBio.svelte";
   import TileSizeSlider from "./lib/components/TileSizeSlider.svelte";
 
   // null = checked, no root yet; undefined = still checking.
@@ -50,21 +48,19 @@
   onMount(async () => {
     // Hydrate persisted state before first paint of the shell. Tile sizes keep
     // their defaults for any view the user hasn't adjusted yet.
-    const [persistedRoot, tiles, savedBackdrop, savedInspectorOpen, savedPaletteK, savedBioOpen] =
+    const [persistedRoot, tiles, savedBackdrop, savedInspectorOpen, savedPaletteK] =
       await Promise.all([
         getRoot(),
         getTileSizes(),
         getBackdrop(),
         getInspectorOpen(),
         getPaletteK(),
-        getBioOpen(),
       ]);
     settings.update((s) => ({
       root: tiles.root ?? s.root,
       photographer: tiles.photographer ?? s.photographer,
     }));
     backdrop.set(asBackdrop(savedBackdrop));
-    bioOpen.set(asBioOpen(savedBioOpen));
     inspectorOpen.set(asInspectorOpen(savedInspectorOpen));
     const k = asPaletteK(savedPaletteK);
     paletteK.set(k);
@@ -158,15 +154,24 @@
           <span class="name-box" title={$selected.name} data-tauri-drag-region
             >{$selected.name}</span
           >
+          {#if $selected.instagram}
+            <button
+              class="icon-btn social-btn"
+              title="Instagram: @{$selected.instagram}"
+              aria-label="Open Instagram profile for {$selected.name}"
+              onclick={() => void openUrl(`https://instagram.com/${$selected!.instagram}`)}
+            ><AtSign size={14} aria-hidden="true" /></button>
+          {/if}
+          {#if $selected.website}
+            <button
+              class="icon-btn social-btn"
+              title={$selected.website}
+              aria-label="Open website for {$selected.name}"
+              onclick={() => void openUrl($selected!.website!)}
+            ><Globe size={14} aria-hidden="true" /></button>
+          {/if}
         </div>
         <div class="group">
-          <button
-            class="icon-btn"
-            title={$bioOpen ? "Hide bio" : "Show bio"}
-            aria-label={$bioOpen ? "Hide bio" : "Show bio"}
-            aria-pressed={$bioOpen}
-            onclick={() => { const next = !$bioOpen; bioOpen.set(next); void setBioOpen(next); }}
-          >◧</button>
           <button
             class="icon-btn"
             title="Reveal this photographer's folder in Finder"
@@ -205,12 +210,7 @@
       {/if}
     </header>
     {#if $selected}
-      <div class="view-row">
-        {#if $bioOpen}
-          <PhotoBio root={$root!} photographer={$selected} />
-        {/if}
-        <PhotographerView root={$root!} photographer={$selected} />
-      </div>
+      <PhotographerView root={$root!} photographer={$selected} />
     {:else}
       <PhotographerGrid root={$root!} onselect={(p) => selected.set(p)} />
     {/if}
@@ -241,20 +241,6 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
-  }
-
-  /* Bio bar + PhotographerView side by side. min-height: 0 keeps the row
-     within the shell's flex track so each child scrolls independently. */
-  .view-row {
-    display: flex;
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  .view-row :global(.view) {
-    flex: 1 1 auto;
-    min-width: 0;
   }
 
   .bar {
@@ -327,6 +313,17 @@
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
+  }
+
+  .social-btn {
+    padding: 0.2rem;
+    color: var(--fg-dim);
+    opacity: 0.7;
+    transition: opacity 0.12s;
+  }
+
+  .social-btn:hover {
+    opacity: 1;
   }
 
   /* Wraps the input so the search icon can sit inside its left edge. */

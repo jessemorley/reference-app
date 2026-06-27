@@ -71,16 +71,6 @@ export function asInspectorOpen(value: unknown): boolean {
   return typeof value === "boolean" ? value : DEFAULT_INSPECTOR_OPEN;
 }
 
-/** Whether the Photographer Bio bar (the left panel in the Photographer view)
- *  is shown. Durable global preference — default closed, opt-in like the Inspector. */
-export const DEFAULT_BIO_OPEN = false;
-
-export const bioOpen = writable<boolean>(DEFAULT_BIO_OPEN);
-
-export function asBioOpen(value: unknown): boolean {
-  return typeof value === "boolean" ? value : DEFAULT_BIO_OPEN;
-}
-
 /** Number of colours the palette extractor returns (Slice 9). Global + durable
  *  so the choice survives paging, remounting the Inspector, and relaunch — the
  *  Inspector remounts per open/page, so a component-local value would reset to
