@@ -163,11 +163,10 @@
     </div>
     <PaletteBar {palette} status={paletteStatus} />
   </section>
-  <!-- ponytail: vectorscope hidden, remove when ready -->
-  <!-- <section class="region">
+  <section class="region">
     <h2 class="label">Vectorscope</h2>
     <Vectorscope {vectorscope} status={vectorscopeStatus} />
-  </section> -->
+  </section>
 </aside>
 
 <style>

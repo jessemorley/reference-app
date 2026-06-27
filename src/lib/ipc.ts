@@ -107,7 +107,7 @@ export function computeHistogram(path: string): Promise<Histogram> {
   return invoke<Histogram>("compute_histogram", { imgPath: path });
 }
 
-/** 128×128 Cb/Cr vectorscope density grid for the image at `path`, computed in
+/** 512×512 Cb/Cr vectorscope density grid for the image at `path`, computed in
  *  Rust in one decode pass (ADR-0001). Rejects on the same decode failures as
  *  `computeHistogram` (HEIC/AVIF & broken files → Inspector "unavailable"). */
 export function computeVectorscope(path: string): Promise<Vectorscope> {
