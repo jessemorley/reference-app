@@ -334,11 +334,12 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0.15rem;
+    padding: 0;
+    border-radius: 0;
+    background: none;
     color: var(--fg-dim);
     opacity: 0.6;
     transition: opacity 0.12s;
-    border-radius: 0.25rem;
   }
 
   .social-btn:hover {
