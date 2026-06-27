@@ -10,6 +10,7 @@
     selectRoot,
     revealInFinder,
     openUrl,
+    setPhotographerInfo,
   } from "./lib/ipc";
   import { root } from "./lib/stores/root";
   import {
@@ -34,6 +35,7 @@
   import Globe from "@lucide/svelte/icons/globe";
   import House from "@lucide/svelte/icons/house";
   import AtSign from "@lucide/svelte/icons/at-sign";
+  import Pencil from "@lucide/svelte/icons/pencil";
   import Search from "@lucide/svelte/icons/search";
   import User from "@lucide/svelte/icons/user";
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
@@ -86,10 +88,38 @@
   // ⌘R re-runs the active view's scan in place (the view re-fetches silently —
   // no "Scanning…" flash). preventDefault stops the webview's own reload.
   function onKeydown(e: KeyboardEvent) {
+    if (e.key === "Escape" && editingInfo) { cancelEditInfo(); return; }
     if (e.metaKey && e.key === "r") {
       e.preventDefault();
       refreshSignal.update((n) => n + 1);
     }
+  }
+
+  // Inline info editor for the name bar.
+  let editingInfo = $state(false);
+  let draftInstagram = $state("");
+  let draftWebsite = $state("");
+  let draftBlurb = $state("");
+
+  function startEditInfo() {
+    draftInstagram = $selected?.instagram ?? "";
+    draftWebsite = $selected?.website ?? "";
+    draftBlurb = $selected?.blurb ?? "";
+    editingInfo = true;
+  }
+
+  function cancelEditInfo() {
+    editingInfo = false;
+  }
+
+  function saveInfo() {
+    if (!$selected || !$root) return;
+    const ig = draftInstagram.trim().replace(/^@/, "") || null;
+    const w = draftWebsite.trim() || null;
+    const b = draftBlurb.trim() || null;
+    void setPhotographerInfo($root, $selected.relPath, ig, b, w);
+    selected.update((p) => (p ? { ...p, instagram: ig, website: w, blurb: b } : p));
+    editingInfo = false;
   }
 
   // Auto-rescan on focus return, but only after a real absence (>5s) so a quick
@@ -107,6 +137,9 @@
 </script>
 
 <svelte:window onkeydown={onKeydown} onfocus={onFocus} onblur={onBlur} />
+{#if editingInfo}
+  <button class="info-scrim" tabindex="-1" aria-hidden="true" onclick={cancelEditInfo}></button>
+{/if}
 
 <!-- Stands in for the hidden-inset titlebar; drag anywhere along the top. -->
 <div class="titlebar" data-tauri-drag-region></div>
@@ -155,6 +188,13 @@
             >{$selected.name}</span
           >
           <div class="social-icons">
+            <button
+              class="social-btn pencil-btn"
+              class:active={editingInfo}
+              type="button"
+              aria-label="Edit photographer info"
+              onclick={startEditInfo}
+            ><Pencil size={12} aria-hidden="true" /></button>
             {#if $selected.instagram}
               <button
                 class="social-btn"
@@ -172,6 +212,24 @@
               ><Globe size={13} aria-hidden="true" /></button>
             {/if}
           </div>
+          {#if editingInfo}
+            <!-- svelte-ignore a11y_autofocus -->
+            <form class="info-popover" onsubmit={(e) => { e.preventDefault(); saveInfo(); }}>
+              <textarea
+                class="info-field"
+                rows={3}
+                placeholder="Bio…"
+                autofocus
+                bind:value={draftBlurb}
+              ></textarea>
+              <div class="info-row">
+                <span class="info-prefix">@</span>
+                <input class="info-field" type="text" placeholder="instagram" bind:value={draftInstagram} />
+              </div>
+              <input class="info-field" type="url" placeholder="https://…" bind:value={draftWebsite} />
+              <button class="info-save" type="submit">Save</button>
+            </form>
+          {/if}
         </div>
         <div class="group">
           <button
@@ -318,14 +376,14 @@
     gap: 0.4rem;
   }
 
-  /* Social icons (Instagram, website) pinned to the right inside the name bar,
-     mirroring the User icon on the left. */
+  /* Social icons + pencil pinned to the right inside the name bar. */
   .social-icons {
     position: absolute;
     right: 0.55rem;
     top: 50%;
     transform: translateY(-50%);
     display: flex;
+    align-items: center;
     gap: 0.2rem;
     pointer-events: auto;
   }
@@ -345,6 +403,94 @@
 
   .social-btn:hover {
     opacity: 1;
+  }
+
+  /* Pencil hidden by default, revealed on name-bar hover or while editing. */
+  .pencil-btn {
+    opacity: 0;
+  }
+
+  .search-wrap:hover .pencil-btn,
+  .pencil-btn.active {
+    opacity: 0.5;
+  }
+
+  .pencil-btn:hover {
+    opacity: 1 !important;
+  }
+
+  /* Edit popover: drops below the name bar. z-index sits above the scrim. */
+  .info-popover {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    background: #2a2a2a;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  }
+
+  .info-field {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.35rem 0.5rem;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0.35rem;
+    color: var(--fg);
+    font: inherit;
+    font-size: 0.8rem;
+    resize: none;
+  }
+
+  .info-field:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+
+  .info-row {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .info-prefix {
+    font-size: 0.8rem;
+    color: var(--fg-dim);
+    flex: none;
+  }
+
+  .info-row .info-field {
+    flex: 1;
+    width: auto;
+  }
+
+  .info-save {
+    align-self: flex-end;
+    padding: 0.25rem 0.7rem !important;
+    font-size: 0.78rem !important;
+    border-radius: 0.35rem !important;
+    background: var(--accent) !important;
+    border: none !important;
+    color: #000;
+    font-weight: 600;
+  }
+
+  /* Click-away scrim behind the popover. */
+  .info-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 99;
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: default;
   }
 
   /* Wraps the input so the search icon can sit inside its left edge. */
