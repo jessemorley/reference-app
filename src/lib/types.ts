@@ -37,6 +37,12 @@ export type Histogram = {
   l: number[];
 };
 
+/** Sparse 512×512 Cb/Cr density map. Only non-zero cells, each as [gx, gy, count]. */
+export type Vectorscope = {
+  size: number;
+  cells: [number, number, number][];
+};
+
 /** weight 0..1. */
 export type Swatch = {
   hex: string;

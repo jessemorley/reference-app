@@ -44,6 +44,64 @@ fn histogram(img: &image::RgbImage) -> Histogram {
     Histogram { r, g, b, l }
 }
 
+/// Sparse 512×512 Cb/Cr density map: only non-zero cells, as (gx, gy, count).
+/// 512 bins per axis → sub-pixel cells at the 300 px Inspector width (even
+/// on Retina), so the rendered scope looks smooth without needing a coarse
+/// blur. Sparse encoding keeps the IPC payload to ~200 KB for a typical photo
+/// instead of ~550 KB for a full flat 512×512 grid.
+#[derive(serde::Serialize)]
+pub struct Vectorscope {
+    pub size: usize,
+    /// Non-zero cells only: each entry is `[gx, gy, count]`.
+    pub cells: Vec<[u32; 3]>,
+}
+
+const VECTORSCOPE_SIZE: usize = 512;
+
+/// Rec. 709 Cb/Cr chroma density map for `img`. Uses the same luma weights
+/// as `luma()` so the scope agrees with the histogram L and the eyedropper.
+/// Drops pixels whose chroma falls outside the inscribed circle (|Cb|²+|Cr|² > 0.25).
+fn vectorscope(img: &image::RgbImage) -> Vectorscope {
+    const S: usize = VECTORSCOPE_SIZE;
+    let mut grid = vec![0u32; S * S];
+    for px in img.pixels() {
+        let [r, g, b] = px.0;
+        let r = r as f64 / 255.0;
+        let g = g as f64 / 255.0;
+        let b = b as f64 / 255.0;
+        let y = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+        let cb = (b - y) / 1.8556; // -0.5..0.5
+        let cr = (r - y) / 1.5748; // -0.5..0.5
+        if cb * cb + cr * cr > 0.25 {
+            continue; // outside inscribed circle
+        }
+        let gx = ((cb + 0.5) * S as f64).floor() as usize;
+        let gy = ((cr + 0.5) * S as f64).floor() as usize;
+        grid[gy.min(S - 1) * S + gx.min(S - 1)] += 1;
+    }
+    let cells = grid
+        .iter()
+        .enumerate()
+        .filter(|(_, &c)| c > 0)
+        .map(|(i, &c)| [(i % S) as u32, (i / S) as u32, c])
+        .collect();
+    Vectorscope { size: S, cells }
+}
+
+/// Decode `img_path` and return its Cb/Cr density grid. Same blocking-pool
+/// pattern and HEIC/AVIF rejection as `compute_histogram`.
+#[tauri::command]
+pub async fn compute_vectorscope(img_path: String) -> Result<Vectorscope, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let img = image::open(&img_path)
+            .map_err(|e| format!("decode {img_path}: {e}"))?
+            .to_rgb8();
+        Ok(vectorscope(&img))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Decode `img_path` and return its histogram. Decoding is blocking, so it runs
 /// on the blocking pool (a sync command would stall the UI — see agent memory).
 /// Rejects on any decode failure, including HEIC/AVIF: the `image` crate can't
@@ -418,6 +476,37 @@ pub async fn extract_palette(img_path: String, k: usize) -> Result<Vec<Swatch>, 
 mod tests {
     use super::*;
     use image::{Rgb, RgbImage};
+
+    #[test]
+    fn vectorscope_sums_to_pixel_count_for_neutral_grey() {
+        // Neutral grey: Cb=Cr=0, inside the circle, so all pixels bin.
+        let img = RgbImage::from_pixel(4, 4, Rgb([128, 128, 128]));
+        let v = vectorscope(&img);
+        let total: u32 = v.cells.iter().map(|[_, _, c]| c).sum();
+        assert_eq!(total, 16, "all 16 pixels inside circle");
+    }
+
+    #[test]
+    fn neutral_grey_lands_at_centre_cell() {
+        // Any grey (equal R/G/B) has Cb=Cr=0 → maps to cell (256,256) at 512×512.
+        let img = RgbImage::from_pixel(3, 3, Rgb([200, 200, 200]));
+        let v = vectorscope(&img);
+        assert_eq!(v.cells.len(), 1, "single non-zero cell");
+        assert_eq!(v.cells[0], [256, 256, 9], "centre cell holds all 9 pixels");
+    }
+
+    #[test]
+    fn saturated_red_lands_off_centre_toward_rim() {
+        // [200,0,0]: Cr ≈ +0.39, Cb ≈ -0.09 → inside circle, positive Cr half.
+        let img = RgbImage::from_pixel(4, 4, Rgb([200, 0, 0]));
+        let v = vectorscope(&img);
+        assert!(
+            v.cells.iter().all(|[gx, gy, _]| !(*gx == 256 && *gy == 256)),
+            "not at the neutral centre"
+        );
+        let hot = v.cells.iter().max_by_key(|[_, _, c]| c).unwrap();
+        assert!(hot[1] > 256, "positive Cr → gy > 256 (upper half of grid)");
+    }
 
     #[test]
     fn bins_sum_to_pixel_count_and_spike_at_the_colour() {

@@ -2,7 +2,7 @@
 // Add a wrapper here as each backend command lands in its slice.
 
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
-import type { Category, Histogram, Photographer, RefImage, Swatch } from "./types";
+import type { Category, Histogram, Photographer, RefImage, Swatch, Vectorscope } from "./types";
 import type { TileView } from "./stores/settings";
 
 /** Open the folder picker; persists and returns the chosen Photography Root,
@@ -105,6 +105,13 @@ export function assetUrl(path: string): string {
  *  them natively; the Inspector renders an "unavailable" state on rejection. */
 export function computeHistogram(path: string): Promise<Histogram> {
   return invoke<Histogram>("compute_histogram", { imgPath: path });
+}
+
+/** 512×512 Cb/Cr vectorscope density grid for the image at `path`, computed in
+ *  Rust in one decode pass (ADR-0001). Rejects on the same decode failures as
+ *  `computeHistogram` (HEIC/AVIF & broken files → Inspector "unavailable"). */
+export function computeVectorscope(path: string): Promise<Vectorscope> {
+  return invoke<Vectorscope>("compute_vectorscope", { imgPath: path });
 }
 
 /** Up to `k` dominant colours for the image at `path` (k-means in CIELAB,

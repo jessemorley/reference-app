@@ -9,16 +9,14 @@ the bottom under "Resolved".
 
 ## Todo
 
-### Root view
-- Hide folder location; instead show forward/back buttons (Also replace the "< Photographers" button from Photographer view)
+## Window
+- Window un-draggable with single image maximised
+- Forward / back buttons should move to
   
 ### Colour Palette
-- Automatically-select number of colours for palette (suggest a default k)
+- Automatically-select number of colours for pallette
 - Add button to show palette anchor points on the image which can be dragged to new values by the user
 - Add option to show palette on colour wheel
-
-### Photographer View
-- Add button to open folder in finder
 
 ### Inspector Panel
 - Make inspector panel resizable (max width 550px)
@@ -26,10 +24,6 @@ the bottom under "Resolved".
 ### Value
 - Allow click to freeze Value values and add a new live value row on top ()
 - Add hex value inside swatch square (make rounded rectangle to fit)
-
-### Image-size slider
-- Hide on single-image view
-- Restyle to match slider-example.png
 
 ### Histogram
 - Change from three-column grid overlay to four
