@@ -154,22 +154,24 @@
           <span class="name-box" title={$selected.name} data-tauri-drag-region
             >{$selected.name}</span
           >
-          {#if $selected.instagram}
-            <button
-              class="icon-btn social-btn"
-              title="Instagram: @{$selected.instagram}"
-              aria-label="Open Instagram profile for {$selected.name}"
-              onclick={() => void openUrl(`https://instagram.com/${$selected!.instagram}`)}
-            ><AtSign size={14} aria-hidden="true" /></button>
-          {/if}
-          {#if $selected.website}
-            <button
-              class="icon-btn social-btn"
-              title={$selected.website}
-              aria-label="Open website for {$selected.name}"
-              onclick={() => void openUrl($selected!.website!)}
-            ><Globe size={14} aria-hidden="true" /></button>
-          {/if}
+          <div class="social-icons">
+            {#if $selected.instagram}
+              <button
+                class="social-btn"
+                title="Instagram: @{$selected.instagram}"
+                aria-label="Open Instagram profile for {$selected.name}"
+                onclick={() => void openUrl(`https://instagram.com/${$selected!.instagram}`)}
+              ><AtSign size={13} aria-hidden="true" /></button>
+            {/if}
+            {#if $selected.website}
+              <button
+                class="social-btn"
+                title={$selected.website}
+                aria-label="Open website for {$selected.name}"
+                onclick={() => void openUrl($selected!.website!)}
+              ><Globe size={13} aria-hidden="true" /></button>
+            {/if}
+          </div>
         </div>
         <div class="group">
           <button
@@ -265,8 +267,9 @@
   .name-box {
     flex: 1;
     min-width: 0;
-    /* Left padding clears the icon; matches .search. */
-    padding: 0.35rem 0.6rem 0.35rem 1.85rem;
+    /* Left padding clears the User icon; right padding reserves space for up to
+       2 social icons (each ~18px) + gap. */
+    padding: 0.35rem 3.2rem 0.35rem 1.85rem;
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 0.4rem;
     background: rgba(255, 255, 255, 0.05);
@@ -315,11 +318,27 @@
     gap: 0.4rem;
   }
 
+  /* Social icons (Instagram, website) pinned to the right inside the name bar,
+     mirroring the User icon on the left. */
+  .social-icons {
+    position: absolute;
+    right: 0.55rem;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    gap: 0.2rem;
+    pointer-events: auto;
+  }
+
   .social-btn {
-    padding: 0.2rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.15rem;
     color: var(--fg-dim);
-    opacity: 0.7;
+    opacity: 0.6;
     transition: opacity 0.12s;
+    border-radius: 0.25rem;
   }
 
   .social-btn:hover {
