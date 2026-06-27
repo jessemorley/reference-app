@@ -20,7 +20,7 @@ const ANSEL: Photographer = {
   name: "Ansel",
   relPath: "Ansel",
   coverPath: "/r/Ansel/loose.jpg",
-  pinned: false,
+  pinned: false, instagram: null, blurb: null,
 };
 
 beforeEach(() => {

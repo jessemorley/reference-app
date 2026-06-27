@@ -28,6 +28,11 @@ pub struct Photographer {
     /// cover" (Slice 10). Always `false` out of `scan_photographers`; the
     /// `list_photographers` command flips it when it applies a pin.
     pub pinned: bool,
+    /// Instagram handle (without `@`), from `.refapp.json` in the folder. `None`
+    /// when the file is absent or the field is missing/empty.
+    pub instagram: Option<String>,
+    /// Short bio blurb, from `.refapp.json`. `None` when absent or empty.
+    pub blurb: Option<String>,
 }
 
 /// Image file extensions we surface as Reference images (matched
@@ -99,6 +104,45 @@ fn find_cover_into(dir: &Path, best: &mut Option<PathBuf>) {
     }
 }
 
+/// Read `instagram` + `blurb` from `.refapp.json` inside `dir`.
+/// Missing file, missing keys, or empty strings all return `None` — no info is
+/// treated identically to no file, so the rest of the app has a single code path.
+fn read_photographer_info(dir: &Path) -> (Option<String>, Option<String>) {
+    let Ok(text) = std::fs::read_to_string(dir.join(".refapp.json")) else {
+        return (None, None);
+    };
+    let Ok(val) = serde_json::from_str::<serde_json::Value>(&text) else {
+        return (None, None);
+    };
+    let get = |key: &str| {
+        val.get(key)
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+    };
+    (get("instagram"), get("blurb"))
+}
+
+/// Write `instagram` + `blurb` to `.refapp.json` inside the photographer's folder.
+/// Called from the `set_photographer_info` command; runs on the blocking pool since
+/// it writes to disk (same rationale as `list_photographers`).
+#[tauri::command]
+pub async fn set_photographer_info(
+    root: String,
+    rel_path: String,
+    instagram: Option<String>,
+    blurb: Option<String>,
+) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let path = std::path::Path::new(&root).join(&rel_path).join(".refapp.json");
+        let val = serde_json::json!({ "instagram": instagram, "blurb": blurb });
+        std::fs::write(path, serde_json::to_string_pretty(&val).unwrap())
+            .map_err(|e| e.to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
 /// Enumerate the Photographers directly inside `root`: each immediate
 /// subdirectory holding at least one Reference image, counted recursively so a
 /// Photographer with images only inside Categories still counts. Result is
@@ -124,11 +168,14 @@ pub fn scan_photographers(root: &Path) -> Vec<Photographer> {
             let dir = entry.path();
             let cover = find_cover(&dir)?; // no image in the tree ⇒ skip
             let rel_path = dir.strip_prefix(root).ok()?.to_string_lossy().into_owned();
+            let (instagram, blurb) = read_photographer_info(&dir);
             Some(Photographer {
                 name: name.into_owned(),
                 rel_path,
                 cover: Some(cover.to_string_lossy().into_owned()),
                 pinned: false,
+                instagram,
+                blurb,
             })
         })
         .collect();

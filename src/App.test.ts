@@ -13,10 +13,11 @@ vi.mock("./lib/ipc", () => ({
   // setTileSize. Stub both so App's branching stays the only thing under test.
   getTileSizes: vi.fn(),
   setTileSize: vi.fn(),
-  // App also hydrates the persisted Backdrop, Inspector and palette-k
+  // App also hydrates the persisted Backdrop, Inspector, bio, and palette-k
   // preferences on mount; stub them too.
   getBackdrop: vi.fn(),
   getInspectorOpen: vi.fn(),
+  getBioOpen: vi.fn(),
   getPaletteK: vi.fn(),
   // The loaded shell mounts PhotographerGrid, which scans on mount; stub it so
   // App's branching stays the only thing under test.
@@ -27,6 +28,7 @@ import {
   selectRoot,
   getTileSizes,
   getBackdrop,
+  getBioOpen,
   getInspectorOpen,
   getPaletteK,
   listPhotographers,
@@ -38,6 +40,7 @@ beforeEach(() => {
   vi.mocked(getTileSizes).mockResolvedValue({ root: null, photographer: null });
   vi.mocked(getBackdrop).mockResolvedValue(null);
   vi.mocked(getInspectorOpen).mockResolvedValue(null);
+  vi.mocked(getBioOpen).mockResolvedValue(null);
   vi.mocked(getPaletteK).mockResolvedValue(null);
   // The root store is a module-level singleton; reset it between tests.
   root.set(null);

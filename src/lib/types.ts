@@ -13,6 +13,10 @@ export type Photographer = {
   /** Whether `coverPath` is a user pin (vs. the alphabetical default). Drives
    *  the tile right-click menu's state (Slice 10). */
   pinned: boolean;
+  /** Instagram handle (without `@`), or null if not set. */
+  instagram: string | null;
+  /** Short bio blurb, or null if not set. */
+  blurb: string | null;
 };
 
 /** "Uncategorised" is synthetic. */

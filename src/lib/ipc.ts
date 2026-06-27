@@ -47,6 +47,8 @@ type PhotographerRow = {
   relPath: string;
   cover: string | null;
   pinned: boolean;
+  instagram: string | null;
+  blurb: string | null;
 };
 
 /** Photographers directly under `root` that hold at least one image (empty
@@ -59,6 +61,8 @@ export async function listPhotographers(root: string): Promise<Photographer[]> {
     relPath: r.relPath,
     coverPath: r.cover,
     pinned: r.pinned,
+    instagram: r.instagram,
+    blurb: r.blurb,
   }));
 }
 
@@ -72,6 +76,22 @@ export function setCover(relPath: string, imgPath: string | null): Promise<void>
 /** Reveal a file or folder in Finder (selecting it in its parent). */
 export function revealInFinder(path: string): Promise<void> {
   return invoke("reveal_in_finder", { path });
+}
+
+/** Open a URL in the default browser (WKWebView blocks external navigation). */
+export function openUrl(url: string): Promise<void> {
+  return invoke("open_url", { url });
+}
+
+/** Write photographer bio fields to `.refapp.json` in the photographer's folder.
+ *  Pass `null` for either field to clear it. */
+export function setPhotographerInfo(
+  root: string,
+  relPath: string,
+  instagram: string | null,
+  blurb: string | null,
+): Promise<void> {
+  return invoke("set_photographer_info", { root, relPath, instagram, blurb });
 }
 
 /** One Photographer's Reference images, flattened, plus the real Category tabs.
@@ -148,6 +168,18 @@ export function getInspectorOpen(): Promise<boolean | null> {
 /** Persist the Inspector open/closed preference. */
 export function setInspectorOpen(open: boolean): Promise<void> {
   return invoke("set_setting", { key: INSPECTOR_OPEN_KEY, value: open });
+}
+
+const BIO_OPEN_KEY = "prefs.bioOpen";
+
+/** The persisted Bio bar open/closed preference, or null if never set. */
+export function getBioOpen(): Promise<boolean | null> {
+  return invoke<boolean | null>("get_setting", { key: BIO_OPEN_KEY });
+}
+
+/** Persist the Bio bar open/closed preference. */
+export function setBioOpen(open: boolean): Promise<void> {
+  return invoke("set_setting", { key: BIO_OPEN_KEY, value: open });
 }
 
 const PALETTE_K_KEY = "prefs.paletteK";

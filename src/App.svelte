@@ -2,6 +2,8 @@
   import { onMount } from "svelte";
   import {
     getBackdrop,
+    getBioOpen,
+    setBioOpen,
     getInspectorOpen,
     getPaletteK,
     setPaletteK,
@@ -23,6 +25,8 @@
     settings,
     backdrop,
     asBackdrop,
+    bioOpen,
+    asBioOpen,
     inspectorOpen,
     asInspectorOpen,
     paletteK,
@@ -37,6 +41,7 @@
   import RootPicker from "./lib/components/RootPicker.svelte";
   import PhotographerGrid from "./lib/components/PhotographerGrid.svelte";
   import PhotographerView from "./lib/components/PhotographerView.svelte";
+  import PhotoBio from "./lib/components/PhotoBio.svelte";
   import TileSizeSlider from "./lib/components/TileSizeSlider.svelte";
 
   // null = checked, no root yet; undefined = still checking.
@@ -45,19 +50,21 @@
   onMount(async () => {
     // Hydrate persisted state before first paint of the shell. Tile sizes keep
     // their defaults for any view the user hasn't adjusted yet.
-    const [persistedRoot, tiles, savedBackdrop, savedInspectorOpen, savedPaletteK] =
+    const [persistedRoot, tiles, savedBackdrop, savedInspectorOpen, savedPaletteK, savedBioOpen] =
       await Promise.all([
         getRoot(),
         getTileSizes(),
         getBackdrop(),
         getInspectorOpen(),
         getPaletteK(),
+        getBioOpen(),
       ]);
     settings.update((s) => ({
       root: tiles.root ?? s.root,
       photographer: tiles.photographer ?? s.photographer,
     }));
     backdrop.set(asBackdrop(savedBackdrop));
+    bioOpen.set(asBioOpen(savedBioOpen));
     inspectorOpen.set(asInspectorOpen(savedInspectorOpen));
     const k = asPaletteK(savedPaletteK);
     paletteK.set(k);
@@ -155,6 +162,13 @@
         <div class="group">
           <button
             class="icon-btn"
+            title={$bioOpen ? "Hide bio" : "Show bio"}
+            aria-label={$bioOpen ? "Hide bio" : "Show bio"}
+            aria-pressed={$bioOpen}
+            onclick={() => { const next = !$bioOpen; bioOpen.set(next); void setBioOpen(next); }}
+          >◧</button>
+          <button
+            class="icon-btn"
             title="Reveal this photographer's folder in Finder"
             aria-label="Reveal this photographer's folder in Finder"
             onclick={() => revealInFinder(`${$root}/${$selected!.relPath}`).catch(() => {})}
@@ -191,7 +205,12 @@
       {/if}
     </header>
     {#if $selected}
-      <PhotographerView root={$root!} photographer={$selected} />
+      <div class="view-row">
+        {#if $bioOpen}
+          <PhotoBio root={$root!} photographer={$selected} />
+        {/if}
+        <PhotographerView root={$root!} photographer={$selected} />
+      </div>
     {:else}
       <PhotographerGrid root={$root!} onselect={(p) => selected.set(p)} />
     {/if}
@@ -222,6 +241,20 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
+  }
+
+  /* Bio bar + PhotographerView side by side. min-height: 0 keeps the row
+     within the shell's flex track so each child scrolls independently. */
+  .view-row {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .view-row :global(.view) {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .bar {
