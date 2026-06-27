@@ -49,6 +49,7 @@ type PhotographerRow = {
   pinned: boolean;
   instagram: string | null;
   blurb: string | null;
+  website: string | null;
 };
 
 /** Photographers directly under `root` that hold at least one image (empty
@@ -63,6 +64,7 @@ export async function listPhotographers(root: string): Promise<Photographer[]> {
     pinned: r.pinned,
     instagram: r.instagram,
     blurb: r.blurb,
+    website: r.website,
   }));
 }
 
@@ -90,8 +92,9 @@ export function setPhotographerInfo(
   relPath: string,
   instagram: string | null,
   blurb: string | null,
+  website: string | null,
 ): Promise<void> {
-  return invoke("set_photographer_info", { root, relPath, instagram, blurb });
+  return invoke("set_photographer_info", { root, relPath, instagram, blurb, website });
 }
 
 /** One Photographer's Reference images, flattened, plus the real Category tabs.

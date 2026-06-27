@@ -17,6 +17,8 @@ export type Photographer = {
   instagram: string | null;
   /** Short bio blurb, or null if not set. */
   blurb: string | null;
+  /** Website URL, or null if not set. */
+  website: string | null;
 };
 
 /** "Uncategorised" is synthetic. */

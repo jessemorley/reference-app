@@ -33,6 +33,8 @@ pub struct Photographer {
     pub instagram: Option<String>,
     /// Short bio blurb, from `.refapp.json`. `None` when absent or empty.
     pub blurb: Option<String>,
+    /// Website URL, from `.refapp.json`. `None` when absent or empty.
+    pub website: Option<String>,
 }
 
 /// Image file extensions we surface as Reference images (matched
@@ -107,12 +109,12 @@ fn find_cover_into(dir: &Path, best: &mut Option<PathBuf>) {
 /// Read `instagram` + `blurb` from `.refapp.json` inside `dir`.
 /// Missing file, missing keys, or empty strings all return `None` — no info is
 /// treated identically to no file, so the rest of the app has a single code path.
-fn read_photographer_info(dir: &Path) -> (Option<String>, Option<String>) {
+fn read_photographer_info(dir: &Path) -> (Option<String>, Option<String>, Option<String>) {
     let Ok(text) = std::fs::read_to_string(dir.join(".refapp.json")) else {
-        return (None, None);
+        return (None, None, None);
     };
     let Ok(val) = serde_json::from_str::<serde_json::Value>(&text) else {
-        return (None, None);
+        return (None, None, None);
     };
     let get = |key: &str| {
         val.get(key)
@@ -120,7 +122,7 @@ fn read_photographer_info(dir: &Path) -> (Option<String>, Option<String>) {
             .filter(|s| !s.is_empty())
             .map(str::to_string)
     };
-    (get("instagram"), get("blurb"))
+    (get("instagram"), get("blurb"), get("website"))
 }
 
 /// Write `instagram` + `blurb` to `.refapp.json` inside the photographer's folder.
@@ -132,10 +134,11 @@ pub async fn set_photographer_info(
     rel_path: String,
     instagram: Option<String>,
     blurb: Option<String>,
+    website: Option<String>,
 ) -> Result<(), String> {
     tauri::async_runtime::spawn_blocking(move || {
         let path = std::path::Path::new(&root).join(&rel_path).join(".refapp.json");
-        let val = serde_json::json!({ "instagram": instagram, "blurb": blurb });
+        let val = serde_json::json!({ "instagram": instagram, "blurb": blurb, "website": website });
         std::fs::write(path, serde_json::to_string_pretty(&val).unwrap())
             .map_err(|e| e.to_string())
     })
@@ -168,7 +171,7 @@ pub fn scan_photographers(root: &Path) -> Vec<Photographer> {
             let dir = entry.path();
             let cover = find_cover(&dir)?; // no image in the tree ⇒ skip
             let rel_path = dir.strip_prefix(root).ok()?.to_string_lossy().into_owned();
-            let (instagram, blurb) = read_photographer_info(&dir);
+            let (instagram, blurb, website) = read_photographer_info(&dir);
             Some(Photographer {
                 name: name.into_owned(),
                 rel_path,
@@ -176,6 +179,7 @@ pub fn scan_photographers(root: &Path) -> Vec<Photographer> {
                 pinned: false,
                 instagram,
                 blurb,
+                website,
             })
         })
         .collect();

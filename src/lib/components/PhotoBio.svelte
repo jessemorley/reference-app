@@ -10,20 +10,24 @@
 
   let instagram = $state<string | null>(null);
   let blurb = $state<string | null>(null);
+  let website = $state<string | null>(null);
   let editing = $state(false);
   let draftInstagram = $state("");
   let draftBlurb = $state("");
+  let draftWebsite = $state("");
 
   // Drive local state from the prop reactively — resets when photographer changes.
   $effect(() => {
     instagram = photographer.instagram;
     blurb = photographer.blurb;
+    website = photographer.website;
     editing = false;
   });
 
   function startEdit() {
     draftInstagram = instagram ?? "";
     draftBlurb = blurb ?? "";
+    draftWebsite = website ?? "";
     editing = true;
   }
 
@@ -35,9 +39,11 @@
     e.preventDefault();
     const ig = draftInstagram.trim().replace(/^@/, "") || null;
     const b = draftBlurb.trim() || null;
-    void setPhotographerInfo(root, photographer.relPath, ig, b);
+    const w = draftWebsite.trim() || null;
+    void setPhotographerInfo(root, photographer.relPath, ig, b, w);
     instagram = ig;
     blurb = b;
+    website = w;
     editing = false;
   }
 </script>
@@ -64,6 +70,13 @@
           onkeydown={(e) => { if (e.key === "Escape") { e.preventDefault(); cancel(); } }}
         />
       </div>
+      <input
+        class="field"
+        type="url"
+        placeholder="https://yoursite.com"
+        bind:value={draftWebsite}
+        onkeydown={(e) => { if (e.key === "Escape") { e.preventDefault(); cancel(); } }}
+      />
       <button class="save" type="submit">Save</button>
     </form>
   {:else}
@@ -77,6 +90,13 @@
           type="button"
           onclick={() => void openUrl(`https://instagram.com/${instagram}`)}
         >@{instagram}</button>
+      {/if}
+      {#if website}
+        <button
+          class="ig-link"
+          type="button"
+          onclick={() => void openUrl(website!)}
+        >{website}</button>
       {/if}
     </div>
     <button class="pencil" type="button" onclick={startEdit} aria-label="Edit photographer info">
