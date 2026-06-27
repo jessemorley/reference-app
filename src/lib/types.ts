@@ -33,6 +33,12 @@ export type RefImage = {
   path: string;
   /** null = loose (directly in the Photographer folder). */
   category: string | null;
+  /** Owning Photographer's display name — only present in the all-images root
+   *  grid (`listAllImages`); absent in the per-photographer view. */
+  photographer?: string;
+  /** Owning Photographer's path relative to the Root (the click-through key);
+   *  present on the same terms as `photographer`. */
+  photographerRelPath?: string;
 };
 
 /** 256 bins each. */

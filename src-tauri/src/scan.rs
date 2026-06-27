@@ -248,6 +248,14 @@ pub struct RefImage {
     pub name: String,
     pub path: String,
     pub category: Option<String>,
+    /// Owning Photographer's display name. `None` in the per-photographer view
+    /// (`scan_images`); set by `scan_all_images` for the all-images root grid.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub photographer: Option<String>,
+    /// Owning Photographer's path relative to the Root (the click-through key).
+    /// `None` / set on the same terms as `photographer`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub photographer_rel_path: Option<String>,
 }
 
 /// The payload for one Photographer: the flattened image list plus the Category
@@ -325,6 +333,8 @@ pub fn scan_images(dir: &Path) -> PhotographerImages {
                     name: file_name(&p),
                     path: p.to_string_lossy().into_owned(),
                     category: Some(name.clone()),
+                    photographer: None,
+                    photographer_rel_path: None,
                 });
             }
         } else if is_image(&path) {
@@ -332,6 +342,8 @@ pub fn scan_images(dir: &Path) -> PhotographerImages {
                 name: file_name(&path),
                 path: path.to_string_lossy().into_owned(),
                 category: None,
+                photographer: None,
+                photographer_rel_path: None,
             });
         }
     }
@@ -356,6 +368,84 @@ pub fn scan_images(dir: &Path) -> PhotographerImages {
 #[tauri::command]
 pub async fn list_images(root: String, rel_path: String) -> PhotographerImages {
     tauri::async_runtime::spawn_blocking(move || scan_images(&Path::new(&root).join(&rel_path)))
+        .await
+        .unwrap_or_default()
+}
+
+/// Every image across all Photographers, flattened into one grid with Categories
+/// merged by name. Runs `scan_images` per Photographer folder (the same
+/// non-hidden immediate subdirs `scan_photographers` recognises — but without the
+/// recursive cover walk, which the all-images grid doesn't need) and merges the
+/// results: same-named Categories across Photographers collapse into one tab with
+/// summed counts, and every image is tagged with its Photographer's name +
+/// rel_path for the tile overlay / click-through.
+///
+/// Images are ordered by (photographer, category, name) so each Photographer's
+/// tiles cluster; Categories sorted case-insensitively by name.
+pub fn scan_all_images(root: &Path) -> PhotographerImages {
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return PhotographerImages::default();
+    };
+
+    let mut counts: std::collections::HashMap<String, (String, usize)> =
+        std::collections::HashMap::new();
+    let mut images: Vec<RefImage> = Vec::new();
+
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.starts_with('.') {
+            continue; // hidden entry
+        }
+        // Real directory only (file_type is false for symlink-to-dir), matching
+        // scan_photographers.
+        if !entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+            continue;
+        }
+        let dir = entry.path();
+        let rel_path = match dir.strip_prefix(root) {
+            Ok(p) => p.to_string_lossy().into_owned(),
+            Err(_) => continue,
+        };
+        let pi = scan_images(&dir);
+        for c in pi.categories {
+            // Merge by case-insensitive name; keep the first-seen casing for the label.
+            let entry = counts
+                .entry(c.name.to_lowercase())
+                .or_insert((c.name.clone(), 0));
+            entry.1 += c.count;
+        }
+        for mut img in pi.images {
+            img.photographer = Some(name.clone());
+            img.photographer_rel_path = Some(rel_path.clone());
+            images.push(img);
+        }
+    }
+
+    let mut categories: Vec<Category> = counts
+        .into_values()
+        .map(|(name, count)| Category { name, count })
+        .collect();
+    categories.sort_by_key(|c| c.name.to_lowercase());
+
+    images.sort_by(|a, b| {
+        let key = |i: &RefImage| {
+            (
+                i.photographer.as_deref().unwrap_or_default().to_lowercase(),
+                i.category.as_deref().map(str::to_lowercase),
+                i.name.to_lowercase(),
+            )
+        };
+        key(a).cmp(&key(b))
+    });
+
+    PhotographerImages { categories, images }
+}
+
+/// List every image under `root` for the all-images root grid. Blocking walk, so
+/// it runs on the blocking pool (same rationale as `list_images`).
+#[tauri::command]
+pub async fn list_all_images(root: String) -> PhotographerImages {
+    tauri::async_runtime::spawn_blocking(move || scan_all_images(Path::new(&root)))
         .await
         .unwrap_or_default()
 }
@@ -567,6 +657,60 @@ mod tests {
         let out = scan_images(Path::new("/no/such/photographer"));
         assert!(out.categories.is_empty());
         assert!(out.images.is_empty());
+    }
+
+    // --- scan_all_images (all-images root grid) ---
+
+    #[test]
+    fn all_images_merges_same_named_categories_across_photographers() {
+        let root = tempdir().unwrap();
+        touch(&root.path().join("Ansel/portraits/a.jpg"));
+        touch(&root.path().join("Vivian/portraits/v.jpg"));
+        touch(&root.path().join("Vivian/street/s.jpg"));
+
+        let out = scan_all_images(root.path());
+        let cats: Vec<(&str, usize)> = out
+            .categories
+            .iter()
+            .map(|c| (c.name.as_str(), c.count))
+            .collect();
+        // "portraits" merges to 2; "street" stays 1; sorted by name.
+        assert_eq!(cats, vec![("portraits", 2), ("street", 1)]);
+        assert_eq!(out.images.len(), 3);
+    }
+
+    #[test]
+    fn all_images_tag_each_image_with_its_photographer() {
+        let root = tempdir().unwrap();
+        touch(&root.path().join("Ansel/loose.jpg"));
+        touch(&root.path().join("Vivian/street/s.jpg"));
+
+        let out = scan_all_images(root.path());
+        for img in &out.images {
+            // Every image carries attribution.
+            assert!(img.photographer.is_some());
+            assert_eq!(
+                img.photographer.as_deref(),
+                img.photographer_rel_path.as_deref()
+            );
+        }
+        // Clustered by photographer: Ansel's image sorts before Vivian's.
+        assert_eq!(out.images[0].photographer.as_deref(), Some("Ansel"));
+        assert_eq!(out.images[0].category, None);
+        assert_eq!(out.images[1].photographer.as_deref(), Some("Vivian"));
+        assert_eq!(out.images[1].category.as_deref(), Some("street"));
+    }
+
+    #[test]
+    fn all_images_skips_hidden_dirs_and_loose_root_files() {
+        let root = tempdir().unwrap();
+        touch(&root.path().join("loose_in_root.jpg")); // directly in root → ignored
+        touch(&root.path().join(".hidden/h.jpg")); // hidden photographer → ignored
+        touch(&root.path().join("Ansel/a.jpg"));
+
+        let out = scan_all_images(root.path());
+        assert_eq!(out.images.len(), 1);
+        assert_eq!(out.images[0].name, "a.jpg");
     }
 
     #[cfg(unix)]

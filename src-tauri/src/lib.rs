@@ -146,6 +146,7 @@ pub fn run() {
             open_url,
             scan::list_photographers,
             scan::list_images,
+            scan::list_all_images,
             scan::set_photographer_info,
             thumbs::ensure_thumb,
             analysis::compute_histogram,

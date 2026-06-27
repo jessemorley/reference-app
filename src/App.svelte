@@ -20,6 +20,7 @@
     refreshSignal,
     canBack,
     back,
+    rootView,
   } from "./lib/stores/navigation";
   import {
     settings,
@@ -42,6 +43,7 @@
   import RootPicker from "./lib/components/RootPicker.svelte";
   import PhotographerGrid from "./lib/components/PhotographerGrid.svelte";
   import PhotographerView from "./lib/components/PhotographerView.svelte";
+  import AllImagesView from "./lib/components/AllImagesView.svelte";
   import TileSizeSlider from "./lib/components/TileSizeSlider.svelte";
 
   // null = checked, no root yet; undefined = still checking.
@@ -245,18 +247,36 @@
           {/if}
         </div>
       {:else}
-        <div class="search-wrap">
-          <Search class="search-icon" size={15} aria-hidden="true" />
-          <input
-            class="search"
-            type="search"
-            placeholder="Search photographers…"
-            aria-label="Search photographers"
-            title={$root}
-            bind:value={$search}
-          />
-        </div>
+        {#if $rootView === "photographers"}
+          <div class="search-wrap">
+            <Search class="search-icon" size={15} aria-hidden="true" />
+            <input
+              class="search"
+              type="search"
+              placeholder="Search photographers…"
+              aria-label="Search photographers"
+              title={$root}
+              bind:value={$search}
+            />
+          </div>
+        {:else}
+          <div class="search-wrap"></div>
+        {/if}
         <div class="group">
+          <div class="seg" role="group" aria-label="Root view">
+            <button
+              class:active={$rootView === "photographers"}
+              type="button"
+              aria-pressed={$rootView === "photographers"}
+              onclick={() => rootView.set("photographers")}
+            >Photographers</button>
+            <button
+              class:active={$rootView === "images"}
+              type="button"
+              aria-pressed={$rootView === "images"}
+              onclick={() => rootView.set("images")}
+            >All images</button>
+          </div>
           <button
             class="icon-btn"
             onclick={change}
@@ -265,12 +285,14 @@
           >
             <Folder size={15} aria-hidden="true" />
           </button>
-          <TileSizeSlider view="root" />
+          <TileSizeSlider view={$rootView === "images" ? "photographer" : "root"} />
         </div>
       {/if}
     </header>
     {#if $selected}
       <PhotographerView root={$root!} photographer={$selected} />
+    {:else if $rootView === "images"}
+      <AllImagesView root={$root!} />
     {:else}
       <PhotographerGrid root={$root!} onselect={(p) => selected.set(p)} />
     {/if}
@@ -540,6 +562,34 @@
     align-items: center;
     gap: 0.75rem;
     min-width: 0;
+  }
+
+  /* Segmented toggle: two pills sharing one rounded shell, the active half
+     filled. Overrides the global .bar button radius so they read as one control. */
+  .seg {
+    display: inline-flex;
+    flex: none;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0.4rem;
+    overflow: hidden;
+  }
+
+  .seg button {
+    border: none !important;
+    border-radius: 0 !important;
+    background: transparent;
+    color: var(--fg-dim);
+    white-space: nowrap;
+  }
+
+  .seg button:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--fg);
+  }
+
+  .seg button.active {
+    background: rgba(255, 255, 255, 0.14);
+    color: var(--fg);
   }
 
 </style>
