@@ -1,7 +1,7 @@
 <script lang="ts">
   import { reading } from "../stores/eyedropper";
   import type { Vectorscope } from "../types";
-  import { drawVectorscope, detectColorScheme } from "../analysis/draw-vectorscope";
+  import { drawVectorscope } from "../analysis/draw-vectorscope";
 
   let {
     vectorscope,
@@ -10,10 +10,6 @@
 
   let canvas = $state<HTMLCanvasElement>();
   let zoom = $state<1 | 2>(1);
-
-  const schemeName = $derived(
-    status === "ready" && vectorscope ? detectColorScheme(vectorscope) : null
-  );
 
   $effect(() => {
     const r = $reading;
@@ -44,9 +40,6 @@
       aria-pressed={zoom === 2}
     >2×</button>
   </div>
-  {#if schemeName}
-    <p class="scheme">{schemeName}</p>
-  {/if}
 {:else if status === "loading"}
   <div class="stub" aria-hidden="true"></div>
 {:else}
@@ -95,16 +88,6 @@
     width: 100%;
     aspect-ratio: 1 / 1;
     border-radius: 50%;
-  }
-
-  .scheme {
-    margin: 0.3rem 0 0;
-    text-align: center;
-    font-size: 0.68rem;
-    font-weight: 600;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--fg-dim);
   }
 
   .stub {
