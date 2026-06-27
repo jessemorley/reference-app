@@ -335,6 +335,7 @@
     align-items: center;
     justify-content: center;
     padding: 0;
+    border: none;
     border-radius: 0;
     background: none;
     color: var(--fg-dim);
