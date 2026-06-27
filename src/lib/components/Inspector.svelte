@@ -53,21 +53,13 @@
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
-        const [h, v] = await Promise.all([
-          computeHistogram(path),
-          computeVectorscope(path),
-        ]);
+        const h = await computeHistogram(path);
         if (!cancelled) {
           histogram = h;
           histogramStatus = "ready";
-          vectorscope = v;
-          vectorscopeStatus = "ready";
         }
       } catch {
-        if (!cancelled) {
-          histogramStatus = "unavailable";
-          vectorscopeStatus = "unavailable";
-        }
+        if (!cancelled) histogramStatus = "unavailable";
       }
     }, COMPUTE_DEBOUNCE_MS);
     return () => {
@@ -163,10 +155,10 @@
     </div>
     <PaletteBar {palette} status={paletteStatus} />
   </section>
-  <section class="region">
+  <!-- <section class="region">
     <h2 class="label">Vectorscope</h2>
     <Vectorscope {vectorscope} status={vectorscopeStatus} />
-  </section>
+  </section> -->
 </aside>
 
 <style>
