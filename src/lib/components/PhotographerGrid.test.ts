@@ -30,8 +30,8 @@ describe("PhotographerGrid", () => {
 
   it("renders a tile per photographer and thumbnails each cover", async () => {
     const photographers: Photographer[] = [
-      { name: "Abe", relPath: "Abe", coverPath: "/root/Abe/a.jpg", pinned: false },
-      { name: "Zed", relPath: "Zed", coverPath: null, pinned: false },
+      { name: "Abe", relPath: "Abe", coverPath: "/root/Abe/a.jpg", pinned: false, instagram: null, blurb: null, website: null },
+      { name: "Zed", relPath: "Zed", coverPath: null, pinned: false, instagram: null, blurb: null, website: null },
     ];
     vi.mocked(listPhotographers).mockResolvedValue(photographers);
 
@@ -51,7 +51,7 @@ describe("PhotographerGrid", () => {
 
   it("calls onselect with the photographer when its tile is clicked", async () => {
     const photographers: Photographer[] = [
-      { name: "Abe", relPath: "Abe", coverPath: "/root/Abe/a.jpg", pinned: false },
+      { name: "Abe", relPath: "Abe", coverPath: "/root/Abe/a.jpg", pinned: false, instagram: null, blurb: null, website: null },
     ];
     vi.mocked(listPhotographers).mockResolvedValue(photographers);
     const onselect = vi.fn();
@@ -68,8 +68,8 @@ describe("PhotographerGrid", () => {
 
   it("filters tiles by the search query and shows a no-match state", async () => {
     const photographers: Photographer[] = [
-      { name: "Ansel", relPath: "Ansel", coverPath: "/root/Ansel/a.jpg", pinned: false },
-      { name: "Vivian", relPath: "Vivian", coverPath: "/root/Vivian/v.jpg", pinned: false },
+      { name: "Ansel", relPath: "Ansel", coverPath: "/root/Ansel/a.jpg", pinned: false, instagram: null, blurb: null, website: null },
+      { name: "Vivian", relPath: "Vivian", coverPath: "/root/Vivian/v.jpg", pinned: false, instagram: null, blurb: null, website: null },
     ];
     vi.mocked(listPhotographers).mockResolvedValue(photographers);
 

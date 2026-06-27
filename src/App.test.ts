@@ -13,7 +13,7 @@ vi.mock("./lib/ipc", () => ({
   // setTileSize. Stub both so App's branching stays the only thing under test.
   getTileSizes: vi.fn(),
   setTileSize: vi.fn(),
-  // App also hydrates the persisted Backdrop, Inspector and palette-k
+  // App also hydrates the persisted Backdrop, Inspector, and palette-k
   // preferences on mount; stub them too.
   getBackdrop: vi.fn(),
   getInspectorOpen: vi.fn(),

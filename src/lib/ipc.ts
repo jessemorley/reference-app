@@ -47,6 +47,9 @@ type PhotographerRow = {
   relPath: string;
   cover: string | null;
   pinned: boolean;
+  instagram: string | null;
+  blurb: string | null;
+  website: string | null;
 };
 
 /** Photographers directly under `root` that hold at least one image (empty
@@ -59,6 +62,9 @@ export async function listPhotographers(root: string): Promise<Photographer[]> {
     relPath: r.relPath,
     coverPath: r.cover,
     pinned: r.pinned,
+    instagram: r.instagram,
+    blurb: r.blurb,
+    website: r.website,
   }));
 }
 
@@ -72,6 +78,23 @@ export function setCover(relPath: string, imgPath: string | null): Promise<void>
 /** Reveal a file or folder in Finder (selecting it in its parent). */
 export function revealInFinder(path: string): Promise<void> {
   return invoke("reveal_in_finder", { path });
+}
+
+/** Open a URL in the default browser (WKWebView blocks external navigation). */
+export function openUrl(url: string): Promise<void> {
+  return invoke("open_url", { url });
+}
+
+/** Write photographer bio fields to `.refapp.json` in the photographer's folder.
+ *  Pass `null` for either field to clear it. */
+export function setPhotographerInfo(
+  root: string,
+  relPath: string,
+  instagram: string | null,
+  blurb: string | null,
+  website: string | null,
+): Promise<void> {
+  return invoke("set_photographer_info", { root, relPath, instagram, blurb, website });
 }
 
 /** One Photographer's Reference images, flattened, plus the real Category tabs.

@@ -102,6 +102,13 @@ fn reveal_in_finder(path: String) -> Result<(), String> {
     tauri_plugin_opener::reveal_item_in_dir(path).map_err(|e| e.to_string())
 }
 
+/// Open a URL in the default browser via tauri-plugin-opener. Used for external
+/// links (e.g. Instagram) where WKWebView's default navigation is blocked.
+#[tauri::command]
+fn open_url(url: String) -> Result<(), String> {
+    tauri_plugin_opener::open_url(url, None::<&str>).map_err(|e| e.to_string())
+}
+
 /// Widen the asset-protocol scope to serve full-res Reference images from
 /// anywhere under `root`. The static scope in tauri.conf.json starts empty;
 /// the Root is user-chosen at runtime, so we grant it here (on selection, and
@@ -136,8 +143,10 @@ pub fn run() {
             set_setting,
             set_cover,
             reveal_in_finder,
+            open_url,
             scan::list_photographers,
             scan::list_images,
+            scan::set_photographer_info,
             thumbs::ensure_thumb,
             analysis::compute_histogram,
             analysis::compute_vectorscope,
