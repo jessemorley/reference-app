@@ -761,6 +761,7 @@
   .seg {
     display: inline-flex;
     flex: none;
+    height: 27px;
     border: 1px solid rgba(255, 255, 255, 0.12);
     border-radius: 0.4rem;
     overflow: hidden;
