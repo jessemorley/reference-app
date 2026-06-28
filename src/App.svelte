@@ -21,6 +21,9 @@
     canBack,
     back,
     rootView,
+    activeTab,
+    tabs,
+    selectTab,
   } from "./lib/stores/navigation";
   import {
     settings,
@@ -51,6 +54,12 @@
   // Bar floats over the content; its measured height offsets the scrollers and
   // pins the tab bar just beneath it (cascaded as --bar-h).
   let barH = $state(0);
+
+  // The tabbed views publish their own tabs; the root photographer grid has
+  // none, so clear any left over from a view we just navigated away from.
+  $effect(() => {
+    if (!$selected && $rootView === "photographers") tabs.set([]);
+  });
 
   onMount(async () => {
     // Hydrate persisted state before first paint of the shell. Tile sizes keep
@@ -162,6 +171,7 @@
          buttons and search input (no attribute) stay interactive — only the
          empty bar area and the name-box label below drag. -->
     <header class="bar" data-tauri-drag-region bind:clientHeight={barH}>
+     <div class="bar-row" data-tauri-drag-region>
       <!-- Back ascends one level (image → grid → root); Home jumps straight to
            root. Leftmost at every level, both disabled at the root. -->
       <div class="nav">
@@ -293,6 +303,26 @@
           <TileSizeSlider view={$rootView === "images" ? "photographer" : "root"} />
         </div>
       {/if}
+     </div>
+
+      <!-- Filter tabs, published by the active view, rendered here so the
+           controls + tabs are one frosted surface. Hidden while an image is open
+           (the Viewer takes the space). -->
+      {#if $tabs.length > 0 && $openIndex === null}
+        <nav class="tabs" aria-label="Categories">
+          {#each $tabs as t (t.key)}
+            <button
+              class="tab"
+              class:active={$activeTab === t.key}
+              type="button"
+              aria-pressed={$activeTab === t.key}
+              onclick={() => selectTab(t.key)}
+            >
+              {t.label}<span class="count">{t.count}</span>
+            </button>
+          {/each}
+        </nav>
+      {/if}
     </header>
     {#if $selected}
       <PhotographerView root={$root!} photographer={$selected} />
@@ -336,12 +366,9 @@
   }
 
   .bar {
+    /* Controls row + optional tabs row stacked into one frosted surface. */
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    /* Even gap so the nav buttons and the search/path read as one evenly
-       spaced cluster (matches .nav's inter-button gap); .group restores the
-       wider spacing on its side. */
+    flex-direction: column;
     gap: 0.5rem;
     /* Reaches the window's top edge; the extra top padding keeps the controls
        clear of the OS traffic lights overlaid there (matches the old 36px
@@ -354,14 +381,63 @@
     left: 0;
     right: 0;
     z-index: 20;
-    /* Only slightly transparent — denser than the --panel tabs below it. */
-    background: rgba(28, 28, 32, 0.9);
+    /* Shared color + blur with the tab bar so the two form one frosted
+       surface (see --chrome-bg). */
+    background: var(--chrome-bg);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     /* Chrome, not content: the bar's labels (path, photographer name) shouldn't
        be selectable like body text. -webkit- for the macOS WKWebView. */
     -webkit-user-select: none;
     user-select: none;
+  }
+
+  /* The controls cluster: nav buttons + search/name + actions, one even row. */
+  .bar-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+
+  /* Filter tabs, second row of the bar (no own background/blur — the bar's). */
+  .tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .tab {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    padding: 0.3rem 0.7rem;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--fg-dim);
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+
+  .tab:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--fg);
+  }
+
+  .tab.active {
+    background: rgba(255, 255, 255, 0.14);
+    color: var(--fg);
+  }
+
+  .count {
+    font-size: 0.78rem;
+    color: var(--fg-dim);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tab.active .count {
+    color: rgba(255, 255, 255, 0.7);
   }
 
   /* Photographer name, boxed to read like the search bar it replaces at this

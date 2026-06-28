@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/svelte";
 import PhotographerView from "./PhotographerView.svelte";
-import { activeTab, ALL_TAB } from "../stores/navigation";
+import { get } from "svelte/store";
+import { activeTab, ALL_TAB, tabs } from "../stores/navigation";
 import type { Photographer, RefImage } from "../types";
 
 // The view loads via listImages on mount; each cell's Thumb resolves via
@@ -26,8 +27,10 @@ const ANSEL: Photographer = {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(ensureThumb).mockResolvedValue("asset://thumb");
-  // activeTab is a module-level singleton; reset between tests.
+  // activeTab/tabs are module-level singletons; reset between tests. The view
+  // now publishes its tabs to the store (the header renders them).
   activeTab.set(ALL_TAB);
+  tabs.set([]);
 });
 
 describe("PhotographerView", () => {
@@ -71,10 +74,8 @@ describe("PhotographerView", () => {
 
     render(PhotographerView, { root: "/r", photographer: ANSEL });
 
-    const tabs = await screen.findByRole("navigation");
-    const labels = Array.from(tabs.querySelectorAll("button")).map((b) =>
-      b.textContent?.replace(/\s+/g, " ").trim()
-    );
+    await screen.findByAltText("loose.jpg");
+    const labels = get(tabs).map((t) => `${t.label}${t.count}`);
     expect(labels).toEqual(["All3", "portraits1", "street1", "Uncategorised1"]);
   });
 
@@ -89,8 +90,9 @@ describe("PhotographerView", () => {
 
     render(PhotographerView, { root: "/r", photographer: ANSEL });
 
-    expect(await screen.findByRole("navigation")).toBeInTheDocument();
-    expect(screen.queryByText("Uncategorised")).not.toBeInTheDocument();
+    await screen.findByAltText("p1.jpg");
+    const keys = get(tabs).map((t) => t.key);
+    expect(keys).toEqual(["All", "portraits"]);
   });
 
   it("filters the grid to the active tab", async () => {
@@ -109,8 +111,8 @@ describe("PhotographerView", () => {
     expect(await screen.findByAltText("loose.jpg")).toBeInTheDocument();
     expect(screen.getByAltText("p1.jpg")).toBeInTheDocument();
 
-    // Click the portraits tab → only its image remains.
-    screen.getByRole("button", { name: /portraits/ }).click();
+    // The header drives filtering via the activeTab store → only portraits.
+    activeTab.set("portraits");
 
     expect(await screen.findByAltText("p1.jpg")).toBeInTheDocument();
     expect(screen.queryByAltText("loose.jpg")).not.toBeInTheDocument();

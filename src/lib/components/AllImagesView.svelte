@@ -13,6 +13,8 @@
     UNCATEGORISED_TAB,
     refreshSignal,
     openIndex,
+    tabs,
+    type Tab,
   } from "../stores/navigation";
   import { settings } from "../stores/settings";
   import Thumb from "./Thumb.svelte";
@@ -56,8 +58,7 @@
     (images ?? []).filter((i) => i.category === null).length
   );
 
-  type Tab = { key: string; label: string; count: number };
-  let tabs = $derived.by<Tab[]>(() => {
+  let tabItems = $derived.by<Tab[]>(() => {
     // No tab bar until there's at least one real Category to filter by.
     if (images === null || categories.length === 0) return [];
     const t: Tab[] = [{ key: ALL_TAB, label: ALL_TAB, count: images.length }];
@@ -68,6 +69,10 @@
       t.push({ key: UNCATEGORISED_TAB, label: UNCATEGORISED_TAB, count: looseCount });
     }
     return t;
+  });
+  // Publish to the header, which renders the tab row inside the bar.
+  $effect(() => {
+    tabs.set(tabItems);
   });
 
   let shown = $derived.by<RefImage[]>(() => {
@@ -120,21 +125,6 @@
     <p class="state">No images in this folder.</p>
   {:else}
     <div class="scroller" class:occluded={$openIndex !== null}>
-      {#if tabs.length > 0}
-        <nav class="tabs" aria-label="Categories">
-          {#each tabs as t (t.key)}
-            <button
-              class="tab"
-              class:active={$activeTab === t.key}
-              type="button"
-              aria-pressed={$activeTab === t.key}
-              onclick={() => { activeTab.set(t.key); openIndex.set(null); }}
-            >
-              {t.label}<span class="count">{t.count}</span>
-            </button>
-          {/each}
-        </nav>
-      {/if}
       <ul class="grid" style="--tile-min: {$settings.photographer}px">
         {#each shown as img, i (img.path)}
           <li class="cell">
@@ -212,54 +202,6 @@
 
   .occluded {
     visibility: hidden;
-  }
-
-  /* Sticks just below the floating menu bar; grid scrolls under both, frosted. */
-  .tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    padding: 0.6rem 1rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    background: var(--panel);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-  }
-
-  .tab {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 0.4rem;
-    padding: 0.3rem 0.7rem;
-    border: 1px solid transparent;
-    border-radius: 999px;
-    background: transparent;
-    color: var(--fg-dim);
-    cursor: pointer;
-    transition: background 0.12s ease, color 0.12s ease;
-  }
-
-  .tab:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: var(--fg);
-  }
-
-  .tab.active {
-    background: rgba(255, 255, 255, 0.14);
-    color: var(--fg);
-  }
-
-  .count {
-    font-size: 0.78rem;
-    color: var(--fg-dim);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .tab.active .count {
-    color: rgba(255, 255, 255, 0.7);
   }
 
   .scroller {
