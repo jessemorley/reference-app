@@ -384,8 +384,8 @@
     /* Shared color + blur with the tab bar so the two form one frosted
        surface (see --chrome-bg). */
     background: var(--chrome-bg);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    backdrop-filter: blur(60px);
+    -webkit-backdrop-filter: blur(60px);
     /* Chrome, not content: the bar's labels (path, photographer name) shouldn't
        be selectable like body text. -webkit- for the macOS WKWebView. */
     -webkit-user-select: none;
