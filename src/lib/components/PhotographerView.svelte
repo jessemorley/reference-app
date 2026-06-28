@@ -172,23 +172,22 @@
   {:else if images.length === 0}
     <p class="state">No images in this photographer's folder.</p>
   {:else}
-    {#if tabs.length > 0}
-      <nav class="tabs" class:occluded={$openIndex !== null} aria-label="Categories">
-        {#each tabs as t (t.key)}
-          <button
-            class="tab"
-            class:active={$activeTab === t.key}
-            type="button"
-            aria-pressed={$activeTab === t.key}
-            onclick={() => { activeTab.set(t.key); openIndex.set(null); }}
-          >
-            {t.label}<span class="count">{t.count}</span>
-          </button>
-        {/each}
-      </nav>
-    {/if}
-
     <div class="scroller" class:occluded={$openIndex !== null}>
+      {#if tabs.length > 0}
+        <nav class="tabs" aria-label="Categories">
+          {#each tabs as t (t.key)}
+            <button
+              class="tab"
+              class:active={$activeTab === t.key}
+              type="button"
+              aria-pressed={$activeTab === t.key}
+              onclick={() => { activeTab.set(t.key); openIndex.set(null); }}
+            >
+              {t.label}<span class="count">{t.count}</span>
+            </button>
+          {/each}
+        </nav>
+      {/if}
       <ul class="grid" style="--tile-min: {$settings.photographer}px">
         {#each shown as img, i (img.path)}
           <li class="cell">
@@ -287,12 +286,19 @@
     visibility: hidden;
   }
 
+  /* Sticks just below the floating menu bar; grid scrolls under both, frosted. */
   .tabs {
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem;
     padding: 0.6rem 1rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--panel);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
   }
 
   /* Reset the global button chrome into a flat pill; the active tab fills in. */
@@ -336,6 +342,8 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    /* First content clears the floating menu bar; everything scrolls under it. */
+    padding-top: var(--bar-h, 0);
   }
 
   /* minmax(--tile-min, 1fr) so full rows fill edge-to-edge (only the last,

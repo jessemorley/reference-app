@@ -535,6 +535,8 @@
   .viewer {
     position: absolute;
     inset: 0;
+    /* Sit below the floating menu bar so its back button stays clickable. */
+    top: var(--bar-h, 0);
     display: flex;
     overflow: hidden;
     z-index: 10;
@@ -543,6 +545,9 @@
 
   .viewer.expanded {
     position: fixed;
+    /* Full-window: cover the menu bar (its own Back/Home surface while expanded). */
+    top: 0;
+    z-index: 30;
   }
 
   /* The image column. Flexes into whatever the Inspector leaves; positioned so

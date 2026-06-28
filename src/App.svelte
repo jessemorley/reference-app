@@ -48,6 +48,9 @@
 
   // null = checked, no root yet; undefined = still checking.
   let ready = $state(false);
+  // Bar floats over the content; its measured height offsets the scrollers and
+  // pins the tab bar just beneath it (cascaded as --bar-h).
+  let barH = $state(0);
 
   onMount(async () => {
     // Hydrate persisted state before first paint of the shell. Tile sizes keep
@@ -151,12 +154,12 @@
 {:else if $root === null}
   <RootPicker />
 {:else}
-  <div class="shell">
+  <div class="shell" style="--bar-h: {barH}px">
     <!-- Drag region: the bar's own background/padding/gaps move the window.
          Tauri only drags on the exact element bearing the attribute, so the
          buttons and search input (no attribute) stay interactive — only the
          empty bar area and the name-box label below drag. -->
-    <header class="bar" data-tauri-drag-region>
+    <header class="bar" data-tauri-drag-region bind:clientHeight={barH}>
       <!-- Back ascends one level (image → grid → root); Home jumps straight to
            root. Leftmost at every level, both disabled at the root. -->
       <div class="nav">
@@ -323,6 +326,9 @@
     display: flex;
     flex-direction: column;
     min-height: 0;
+    /* Positioning context for the absolutely-placed bar that floats over the
+       scrolling content below. */
+    position: relative;
   }
 
   .bar {
@@ -334,7 +340,16 @@
        wider spacing on its side. */
     gap: 0.5rem;
     padding: 0.5rem 1rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    /* Floats over the content so the grid scrolls beneath it; translucent panel
+       + blur so what scrolls under reads as frosted glass. */
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 20;
+    background: var(--panel);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     /* Chrome, not content: the bar's labels (path, photographer name) shouldn't
        be selectable like body text. -webkit- for the macOS WKWebView. */
     -webkit-user-select: none;
