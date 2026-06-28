@@ -7,9 +7,8 @@
   --fg-dim: rgba(255, 255, 255, 0.55);
   --accent: #4c8dff;
   --panel: rgba(28, 28, 32, 0.55);
-  /* The floating header bar's frosted background (controls + tab rows share the
-     one element, so there's a single blur and no seam). */
-  --chrome-bg: rgba(30, 30, 30, 0.95);
+  /* The floating header bar's background (controls + tab rows, one element). */
+  --chrome-bg: #1e1e1e;
   --border: rgba(255, 255, 255, 0.1);
 }
 

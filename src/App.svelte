@@ -374,18 +374,17 @@
        clear of the OS traffic lights overlaid there (matches the old 36px
        titlebar strip's clearance). */
     padding: 45px 1rem 0.5rem;
-    /* Floats over the content so the grid scrolls beneath it; translucent panel
-       + blur so what scrolls under reads as frosted glass. */
+    /* Floats over the content so the grid scrolls beneath it (out of sight,
+       behind this opaque bar). */
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     z-index: 20;
-    /* Shared color + blur with the tab bar so the two form one frosted
-       surface (see --chrome-bg). */
+    /* One opaque surface for both the controls and tab rows. */
     background: var(--chrome-bg);
-    backdrop-filter: blur(60px);
-    -webkit-backdrop-filter: blur(60px);
+    /* Separates the bar from the grid scrolling beneath it. */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     /* Chrome, not content: the bar's labels (path, photographer name) shouldn't
        be selectable like body text. -webkit- for the macOS WKWebView. */
     -webkit-user-select: none;
