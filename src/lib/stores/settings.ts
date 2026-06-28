@@ -90,3 +90,17 @@ export function asPaletteK(value: unknown): number {
     ? Math.min(PALETTE_K_MAX, Math.max(PALETTE_K_MIN, n))
     : DEFAULT_PALETTE_K;
 }
+
+export const GRID_GAP_MIN = 0;
+export const GRID_GAP_MAX = 8;
+export const GRID_GAP_STEP = 1;
+export const DEFAULT_GRID_GAP = 1;
+
+export const gridGap = writable<number>(DEFAULT_GRID_GAP);
+
+export function asGridGap(value: unknown): number {
+  const n = typeof value === "number" ? Math.round(value) : NaN;
+  return Number.isFinite(n)
+    ? Math.min(GRID_GAP_MAX, Math.max(GRID_GAP_MIN, n))
+    : DEFAULT_GRID_GAP;
+}

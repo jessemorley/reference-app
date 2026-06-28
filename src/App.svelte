@@ -11,6 +11,8 @@
     revealInFinder,
     openUrl,
     setPhotographerInfo,
+    getGridGap,
+    setGridGap,
   } from "./lib/ipc";
   import { root } from "./lib/stores/root";
   import {
@@ -33,6 +35,12 @@
     asInspectorOpen,
     paletteK,
     asPaletteK,
+    gridGap,
+    asGridGap,
+    GRID_GAP_MIN,
+    GRID_GAP_MAX,
+    GRID_GAP_STEP,
+    type TileView,
   } from "./lib/stores/settings";
   import Folder from "@lucide/svelte/icons/folder";
   import FolderOpen from "@lucide/svelte/icons/folder-open";
@@ -41,6 +49,7 @@
   import AtSign from "@lucide/svelte/icons/at-sign";
   import Pencil from "@lucide/svelte/icons/pencil";
   import Search from "@lucide/svelte/icons/search";
+  import SlidersHorizontal from "@lucide/svelte/icons/sliders-horizontal";
   import User from "@lucide/svelte/icons/user";
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
   import RootPicker from "./lib/components/RootPicker.svelte";
@@ -64,13 +73,14 @@
   onMount(async () => {
     // Hydrate persisted state before first paint of the shell. Tile sizes keep
     // their defaults for any view the user hasn't adjusted yet.
-    const [persistedRoot, tiles, savedBackdrop, savedInspectorOpen, savedPaletteK] =
+    const [persistedRoot, tiles, savedBackdrop, savedInspectorOpen, savedPaletteK, savedGridGap] =
       await Promise.all([
         getRoot(),
         getTileSizes(),
         getBackdrop(),
         getInspectorOpen(),
         getPaletteK(),
+        getGridGap(),
       ]);
     settings.update((s) => ({
       root: tiles.root ?? s.root,
@@ -80,11 +90,8 @@
     inspectorOpen.set(asInspectorOpen(savedInspectorOpen));
     const k = asPaletteK(savedPaletteK);
     paletteK.set(k);
-    // Heal a divergent stored value (out-of-range or fractional from an older
-    // build / hand-edit): write the coerced k back so it stops being re-clamped
-    // every launch. Skip when never set (null) — defaults aren't persisted until
-    // the user touches the control, matching the other prefs.
     if (savedPaletteK !== null && savedPaletteK !== k) void setPaletteK(k);
+    if (savedGridGap !== null) gridGap.set(asGridGap(savedGridGap));
     root.set(persistedRoot);
     ready = true;
   });
@@ -108,6 +115,14 @@
       refreshSignal.update((n) => n + 1);
     }
   }
+
+  // Which tile view is active (determines which size slider to show in settings).
+  let activeView = $derived<TileView>(
+    $selected || $rootView === "images" ? "photographer" : "root"
+  );
+
+  // Settings popover open state.
+  let settingsOpen = $state(false);
 
   // Inline info editor for the name bar.
   let editingInfo = $state(false);
@@ -154,6 +169,9 @@
 {#if editingInfo}
   <button class="info-scrim" tabindex="-1" aria-hidden="true" onclick={cancelEditInfo}></button>
 {/if}
+{#if settingsOpen}
+  <button class="info-scrim" tabindex="-1" aria-hidden="true" onclick={() => (settingsOpen = false)}></button>
+{/if}
 
 <!-- The loaded shell's bar is its own full-width drag region (covers the top,
      traffic lights and all); only the bar-less screens need this stand-in
@@ -165,7 +183,7 @@
   <div class="titlebar" data-tauri-drag-region></div>
   <RootPicker />
 {:else}
-  <div class="shell" style="--bar-h: {barH}px">
+  <div class="shell" style="--bar-h: {barH}px; --grid-gap: {$gridGap}px">
     <!-- Drag region: the bar's own background/padding/gaps move the window.
          Tauri only drags on the exact element bearing the attribute, so the
          buttons and search input (no attribute) stay interactive — only the
@@ -298,9 +316,6 @@
           >
             <FolderOpen size={15} aria-hidden="true" />
           </button>
-          {#if $openIndex === null}
-            <TileSizeSlider view="photographer" />
-          {/if}
         {:else}
           <div class="seg" role="group" aria-label="Root view">
             <button
@@ -324,8 +339,45 @@
           >
             <Folder size={15} aria-hidden="true" />
           </button>
-          <TileSizeSlider view={$rootView === "images" ? "photographer" : "root"} />
         {/if}
+        <div class="settings-wrap">
+          <button
+            class="icon-btn"
+            class:active={settingsOpen}
+            title="View settings"
+            aria-label="View settings"
+            aria-expanded={settingsOpen}
+            onclick={() => (settingsOpen = !settingsOpen)}
+          >
+            <SlidersHorizontal size={15} aria-hidden="true" />
+          </button>
+          {#if settingsOpen}
+            <div class="settings-popover" role="dialog" aria-label="View settings">
+              {#if $openIndex === null}
+                <div class="setting-row">
+                  <span class="setting-label">Image size</span>
+                  <TileSizeSlider view={activeView} />
+                </div>
+              {/if}
+              <div class="setting-row">
+                <span class="setting-label">Spacing</span>
+                <div class="setting-slider">
+                  <input
+                    type="range"
+                    min={GRID_GAP_MIN}
+                    max={GRID_GAP_MAX}
+                    step={GRID_GAP_STEP}
+                    value={$gridGap}
+                    aria-label="Image spacing"
+                    oninput={(e) => gridGap.set(+(e.currentTarget as HTMLInputElement).value)}
+                    onchange={(e) => setGridGap(+(e.currentTarget as HTMLInputElement).value)}
+                  />
+                  <span class="setting-value">{$gridGap}px</span>
+                </div>
+              </div>
+            </div>
+          {/if}
+        </div>
       </div>
      </div>
     </header>
@@ -511,6 +563,11 @@
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
+  }
+
+  .icon-btn.active {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--fg);
   }
 
   /* Social icons + pencil pinned to the right inside the name bar. */
@@ -706,6 +763,61 @@
   .seg button.active {
     background: rgba(255, 255, 255, 0.14);
     color: var(--fg);
+  }
+
+  .settings-wrap {
+    position: relative;
+    flex: none;
+  }
+
+  .settings-popover {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    z-index: 100;
+    min-width: 240px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding: 0.75rem;
+    background: #2a2a2a;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  }
+
+  .setting-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .setting-label {
+    font-size: 0.8rem;
+    color: var(--fg-dim);
+    flex: none;
+    width: 5.5rem;
+  }
+
+  .setting-slider {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+  }
+
+  .setting-slider input[type="range"] {
+    flex: 1;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  .setting-value {
+    font-size: 0.78rem;
+    color: var(--fg-dim);
+    font-variant-numeric: tabular-nums;
+    min-width: 2rem;
+    text-align: right;
   }
 
 </style>

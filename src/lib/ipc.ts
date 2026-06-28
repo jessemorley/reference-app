@@ -195,3 +195,13 @@ export function getPaletteK(): Promise<number | null> {
 export function setPaletteK(k: number): Promise<void> {
   return invoke("set_setting", { key: PALETTE_K_KEY, value: k });
 }
+
+const GRID_GAP_KEY = "prefs.gridGap";
+
+export function getGridGap(): Promise<number | null> {
+  return invoke<number | null>("get_setting", { key: GRID_GAP_KEY });
+}
+
+export function setGridGap(px: number): Promise<void> {
+  return invoke("set_setting", { key: GRID_GAP_KEY, value: px });
+}

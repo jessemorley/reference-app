@@ -298,8 +298,8 @@
     padding: 0;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(var(--tile-min, 160px), 1fr));
-    gap: 1px;
-    background: #e1e1e1;
+    gap: var(--grid-gap, 1px);
+    background: #1e1e1e;
   }
 
   .cell {
