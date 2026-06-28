@@ -14,6 +14,7 @@
     refreshSignal,
     openIndex,
     tabs,
+    search,
     type Tab,
   } from "../stores/navigation";
   import { settings } from "../stores/settings";
@@ -77,14 +78,14 @@
 
   let shown = $derived.by<RefImage[]>(() => {
     const all = images ?? [];
-    switch ($activeTab) {
-      case ALL_TAB:
-        return all;
-      case UNCATEGORISED_TAB:
-        return all.filter((i) => i.category === null);
-      default:
-        return all.filter((i) => i.category === $activeTab);
-    }
+    const byTab =
+      $activeTab === ALL_TAB
+        ? all
+        : $activeTab === UNCATEGORISED_TAB
+          ? all.filter((i) => i.category === null)
+          : all.filter((i) => i.category === $activeTab);
+    const q = $search.trim().toLowerCase();
+    return q ? byTab.filter((i) => i.name.toLowerCase().includes(q)) : byTab;
   });
 
   // Silent re-scan on ⌘R / focus return: swap images in place without nulling

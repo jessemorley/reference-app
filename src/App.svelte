@@ -171,60 +171,25 @@
          buttons and search input (no attribute) stay interactive — only the
          empty bar area and the name-box label below drag. -->
     <header class="bar" data-tauri-drag-region bind:clientHeight={barH}>
-      <!-- Top strip beside the OS traffic lights. The photographer's name lives
-           here; otherwise it's empty, just reserving the traffic-light clearance
-           for the controls row below. -->
+      <!-- Top strip beside the OS traffic lights: filter tabs live here,
+           published by the active view. Empty otherwise, just reserving the
+           traffic-light clearance for the controls row below. Hidden while an
+           image is open (the Viewer takes the space). -->
       <div class="title-strip" data-tauri-drag-region>
-        {#if $selected}
-          <div class="search-wrap name-wrap">
-            <User class="search-icon" size={15} aria-hidden="true" />
-            <span class="name-box" title={$selected.name} data-tauri-drag-region
-              >{$selected.name}</span
-            >
-            <div class="social-icons">
+        {#if $tabs.length > 0 && $openIndex === null}
+          <nav class="tabs" aria-label="Categories">
+            {#each $tabs as t (t.key)}
               <button
-                class="social-btn pencil-btn"
-                class:active={editingInfo}
+                class="tab"
+                class:active={$activeTab === t.key}
                 type="button"
-                aria-label="Edit photographer info"
-                onclick={startEditInfo}
-              ><Pencil size={12} aria-hidden="true" /></button>
-              {#if $selected.instagram}
-                <button
-                  class="social-btn"
-                  title="Instagram: @{$selected.instagram}"
-                  aria-label="Open Instagram profile for {$selected.name}"
-                  onclick={() => void openUrl(`https://instagram.com/${$selected!.instagram}`)}
-                ><AtSign size={13} aria-hidden="true" /></button>
-              {/if}
-              {#if $selected.website}
-                <button
-                  class="social-btn"
-                  title={$selected.website}
-                  aria-label="Open website for {$selected.name}"
-                  onclick={() => void openUrl($selected!.website!)}
-                ><Globe size={13} aria-hidden="true" /></button>
-              {/if}
-            </div>
-            {#if editingInfo}
-              <!-- svelte-ignore a11y_autofocus -->
-              <form class="info-popover" onsubmit={(e) => { e.preventDefault(); saveInfo(); }}>
-                <textarea
-                  class="info-field"
-                  rows={3}
-                  placeholder="Bio…"
-                  autofocus
-                  bind:value={draftBlurb}
-                ></textarea>
-                <div class="info-row">
-                  <span class="info-prefix">@</span>
-                  <input class="info-field" type="text" placeholder="instagram" bind:value={draftInstagram} />
-                </div>
-                <input class="info-field" type="url" placeholder="https://…" bind:value={draftWebsite} />
-                <button class="info-save" type="submit">Save</button>
-              </form>
-            {/if}
-          </div>
+                aria-pressed={$activeTab === t.key}
+                onclick={() => selectTab(t.key)}
+              >
+                {t.label}<span class="count">{t.count}</span>
+              </button>
+            {/each}
+          </nav>
         {/if}
       </div>
 
@@ -255,38 +220,72 @@
         </button>
       </div>
 
-      <!-- Filter tabs sit right of the Home button, published by the active
-           view. Hidden while an image is open (the Viewer takes the space). -->
-      {#if $tabs.length > 0 && $openIndex === null}
-        <nav class="tabs" aria-label="Categories">
-          {#each $tabs as t (t.key)}
+      {#if $selected}
+        <div class="search-wrap">
+          <User class="search-icon" size={15} aria-hidden="true" />
+          <span class="name-box" title={$selected.name} data-tauri-drag-region
+            >{$selected.name}</span
+          >
+          <div class="social-icons">
             <button
-              class="tab"
-              class:active={$activeTab === t.key}
+              class="social-btn pencil-btn"
+              class:active={editingInfo}
               type="button"
-              aria-pressed={$activeTab === t.key}
-              onclick={() => selectTab(t.key)}
-            >
-              {t.label}<span class="count">{t.count}</span>
-            </button>
-          {/each}
-        </nav>
-      {/if}
-
-      {#if !$selected && $rootView === "photographers"}
+              aria-label="Edit photographer info"
+              onclick={startEditInfo}
+            ><Pencil size={12} aria-hidden="true" /></button>
+            {#if $selected.instagram}
+              <button
+                class="social-btn"
+                title="Instagram: @{$selected.instagram}"
+                aria-label="Open Instagram profile for {$selected.name}"
+                onclick={() => void openUrl(`https://instagram.com/${$selected!.instagram}`)}
+              ><AtSign size={13} aria-hidden="true" /></button>
+            {/if}
+            {#if $selected.website}
+              <button
+                class="social-btn"
+                title={$selected.website}
+                aria-label="Open website for {$selected.name}"
+                onclick={() => void openUrl($selected!.website!)}
+              ><Globe size={13} aria-hidden="true" /></button>
+            {/if}
+          </div>
+          {#if editingInfo}
+            <!-- svelte-ignore a11y_autofocus -->
+            <form class="info-popover" onsubmit={(e) => { e.preventDefault(); saveInfo(); }}>
+              <textarea
+                class="info-field"
+                rows={3}
+                placeholder="Bio…"
+                autofocus
+                bind:value={draftBlurb}
+              ></textarea>
+              <div class="info-row">
+                <span class="info-prefix">@</span>
+                <input class="info-field" type="text" placeholder="instagram" bind:value={draftInstagram} />
+              </div>
+              <input class="info-field" type="url" placeholder="https://…" bind:value={draftWebsite} />
+              <button class="info-save" type="submit">Save</button>
+            </form>
+          {/if}
+        </div>
+      {:else}
         <div class="search-wrap">
           <Search class="search-icon" size={15} aria-hidden="true" />
           <input
             class="search"
             type="search"
-            placeholder="Search photographers…"
-            aria-label="Search photographers"
+            placeholder={$rootView === "images"
+              ? "Search images…"
+              : "Search photographers…"}
+            aria-label={$rootView === "images"
+              ? "Search images"
+              : "Search photographers"}
             title={$root}
             bind:value={$search}
           />
         </div>
-      {:else}
-        <div class="spacer"></div>
       {/if}
 
       <div class="group">
@@ -375,10 +374,12 @@
     /* Controls row + optional tabs row stacked into one frosted surface. */
     display: flex;
     flex-direction: column;
-    gap: 0.4rem;
+    /* +3px over the base gap to separate the tab row from the controls row. */
+    gap: calc(0.4rem + 3px);
     /* Reaches the window's top edge; the title strip below reserves the
-       traffic-light clearance so the controls row clears them. */
-    padding: 0.4rem 1rem 0.5rem;
+       traffic-light clearance so the controls row clears them. +4px nudge down
+       to line the rows up with the OS traffic lights. */
+    padding: calc(0.4rem + 4px) 1rem 0.5rem;
     /* Floats over the content so the grid scrolls beneath it (out of sight,
        behind this opaque bar). */
     position: absolute;
@@ -414,14 +415,8 @@
     gap: 0.5rem;
   }
 
-  /* Eats the slack between the left cluster (nav + tabs) and the right group
-     when there's no search field to fill it. */
-  .spacer {
-    flex: 1;
-    min-width: 0;
-  }
-
-  /* Filter tabs, inline right of the Home button (no own background — the bar's). */
+  /* Filter tabs, in the title strip beside the traffic lights (no own
+     background — the bar's). */
   .tabs {
     flex: none;
     display: flex;
@@ -643,12 +638,6 @@
     display: flex;
   }
 
-  /* The photographer name in the title strip: sized to a compact box beside the
-     traffic lights, not stretched across the bar like the root search field. */
-  .name-wrap {
-    flex: none;
-    width: min(22rem, 45vw);
-  }
 
   .search-wrap :global(.search-icon) {
     position: absolute;
