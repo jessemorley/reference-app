@@ -13,6 +13,8 @@
     setPhotographerInfo,
     getGridGap,
     setGridGap,
+    getGridPadding,
+    setGridPadding,
   } from "./lib/ipc";
   import { root } from "./lib/stores/root";
   import {
@@ -40,6 +42,11 @@
     GRID_GAP_MIN,
     GRID_GAP_MAX,
     GRID_GAP_STEP,
+    gridPadding,
+    asGridPadding,
+    GRID_PADDING_MIN,
+    GRID_PADDING_MAX,
+    GRID_PADDING_STEP,
     type TileView,
   } from "./lib/stores/settings";
   import Folder from "@lucide/svelte/icons/folder";
@@ -75,7 +82,7 @@
   onMount(async () => {
     // Hydrate persisted state before first paint of the shell. Tile sizes keep
     // their defaults for any view the user hasn't adjusted yet.
-    const [persistedRoot, tiles, savedBackdrop, savedInspectorOpen, savedPaletteK, savedGridGap] =
+    const [persistedRoot, tiles, savedBackdrop, savedInspectorOpen, savedPaletteK, savedGridGap, savedGridPadding] =
       await Promise.all([
         getRoot(),
         getTileSizes(),
@@ -83,6 +90,7 @@
         getInspectorOpen(),
         getPaletteK(),
         getGridGap(),
+        getGridPadding(),
       ]);
     settings.update((s) => ({
       root: tiles.root ?? s.root,
@@ -94,6 +102,7 @@
     paletteK.set(k);
     if (savedPaletteK !== null && savedPaletteK !== k) void setPaletteK(k);
     if (savedGridGap !== null) gridGap.set(asGridGap(savedGridGap));
+    if (savedGridPadding !== null) gridPadding.set(asGridPadding(savedGridPadding));
     root.set(persistedRoot);
     ready = true;
   });
@@ -185,7 +194,7 @@
   <div class="titlebar" data-tauri-drag-region></div>
   <RootPicker />
 {:else}
-  <div class="shell" style="--bar-h: {barH}px; --grid-gap: {$gridGap}px">
+  <div class="shell" style="--bar-h: {barH}px; --grid-gap: {$gridGap}px; --grid-padding: {$gridPadding}px">
     <!-- Drag region: the bar's own background/padding/gaps move the window.
          Tauri only drags on the exact element bearing the attribute, so the
          buttons and search input (no attribute) stay interactive — only the
@@ -379,6 +388,22 @@
                     onchange={(e) => setGridGap(+(e.currentTarget as HTMLInputElement).value)}
                   />
                   <span class="setting-value">{$gridGap}px</span>
+                </div>
+              </div>
+              <div class="setting-row">
+                <span class="setting-label">Padding</span>
+                <div class="setting-slider">
+                  <input
+                    type="range"
+                    min={GRID_PADDING_MIN}
+                    max={GRID_PADDING_MAX}
+                    step={GRID_PADDING_STEP}
+                    value={$gridPadding}
+                    aria-label="Grid padding"
+                    oninput={(e) => gridPadding.set(+(e.currentTarget as HTMLInputElement).value)}
+                    onchange={(e) => setGridPadding(+(e.currentTarget as HTMLInputElement).value)}
+                  />
+                  <span class="setting-value">{$gridPadding}px</span>
                 </div>
               </div>
             </div>

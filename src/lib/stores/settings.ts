@@ -104,3 +104,17 @@ export function asGridGap(value: unknown): number {
     ? Math.min(GRID_GAP_MAX, Math.max(GRID_GAP_MIN, n))
     : DEFAULT_GRID_GAP;
 }
+
+export const GRID_PADDING_MIN = 0;
+export const GRID_PADDING_MAX = 32;
+export const GRID_PADDING_STEP = 2;
+export const DEFAULT_GRID_PADDING = 8;
+
+export const gridPadding = writable<number>(DEFAULT_GRID_PADDING);
+
+export function asGridPadding(value: unknown): number {
+  const n = typeof value === "number" ? Math.round(value) : NaN;
+  return Number.isFinite(n)
+    ? Math.min(GRID_PADDING_MAX, Math.max(GRID_PADDING_MIN, n))
+    : DEFAULT_GRID_PADDING;
+}

@@ -120,7 +120,7 @@
   .grid {
     list-style: none;
     margin: 0;
-    padding: 1rem;
+    padding: var(--grid-padding, 8px);
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(var(--tile-min, 200px), 1fr));
     gap: 1rem;

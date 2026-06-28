@@ -205,3 +205,13 @@ export function getGridGap(): Promise<number | null> {
 export function setGridGap(px: number): Promise<void> {
   return invoke("set_setting", { key: GRID_GAP_KEY, value: px });
 }
+
+const GRID_PADDING_KEY = "prefs.gridPadding";
+
+export function getGridPadding(): Promise<number | null> {
+  return invoke<number | null>("get_setting", { key: GRID_PADDING_KEY });
+}
+
+export function setGridPadding(px: number): Promise<void> {
+  return invoke("set_setting", { key: GRID_PADDING_KEY, value: px });
+}
