@@ -210,7 +210,7 @@
     min-height: 0;
     overflow-y: auto;
     /* First content clears the floating menu bar; everything scrolls under it. */
-    padding-top: var(--bar-h, 0);
+    margin-top: var(--bar-h, 0);
   }
 
   .grid {
