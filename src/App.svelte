@@ -46,6 +46,8 @@
   import FolderOpen from "@lucide/svelte/icons/folder-open";
   import Globe from "@lucide/svelte/icons/globe";
   import House from "@lucide/svelte/icons/house";
+  import Image from "@lucide/svelte/icons/image";
+  import SquareUser from "@lucide/svelte/icons/square-user";
   import AtSign from "@lucide/svelte/icons/at-sign";
   import Pencil from "@lucide/svelte/icons/pencil";
   import Search from "@lucide/svelte/icons/search";
@@ -322,14 +324,18 @@
               class:active={$rootView === "photographers"}
               type="button"
               aria-pressed={$rootView === "photographers"}
+              title="Photographers"
+              aria-label="Photographers"
               onclick={() => rootView.set("photographers")}
-            >Photographers</button>
+            ><SquareUser size={15} aria-hidden="true" /></button>
             <button
               class:active={$rootView === "images"}
               type="button"
               aria-pressed={$rootView === "images"}
+              title="All images"
+              aria-label="All images"
               onclick={() => rootView.set("images")}
-            >All images</button>
+            ><Image size={15} aria-hidden="true" /></button>
           </div>
           <button
             class="icon-btn"
@@ -766,6 +772,9 @@
     background: transparent;
     color: var(--fg-dim);
     white-space: nowrap;
+    padding: 0.35rem 0.5rem;
+    display: inline-flex;
+    align-items: center;
   }
 
   .seg button:hover {
