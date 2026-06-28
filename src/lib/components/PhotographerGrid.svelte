@@ -73,7 +73,7 @@
   {:else}
     <ul class="grid" style="--tile-min: {$settings.root}px">
       {#each shown as p, i (p.relPath)}
-        <li in:gridIn={{ index: i }}>
+        <li in:gridIn|global={{ index: i }}>
           <button
             class="tile"
             type="button"

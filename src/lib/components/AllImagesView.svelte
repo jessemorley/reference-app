@@ -131,7 +131,7 @@
     <div class="scroller" class:occluded={$openIndex !== null}>
       <ul class="grid" style="--tile-min: {$settings.photographer}px">
         {#each shown as img, i (img.path)}
-          <li class="cell" in:gridIn={{ index: i }}>
+          <li class="cell" in:gridIn|global={{ index: i }}>
             <button
               class="open"
               type="button"
