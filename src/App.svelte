@@ -682,11 +682,13 @@
     font-weight: 600;
   }
 
-  /* Click-away scrim behind the info popover (above bar). */
+  /* Click-away scrim behind the info popover — must sit BELOW the bar
+     (z-index: 20) so the bar's stacking context stays on top and the
+     popover controls remain interactive. */
   .info-scrim {
     position: fixed;
     inset: 0;
-    z-index: 99;
+    z-index: 19;
     background: transparent;
     border: none;
     padding: 0;
