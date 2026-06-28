@@ -171,6 +171,63 @@
          buttons and search input (no attribute) stay interactive — only the
          empty bar area and the name-box label below drag. -->
     <header class="bar" data-tauri-drag-region bind:clientHeight={barH}>
+      <!-- Top strip beside the OS traffic lights. The photographer's name lives
+           here; otherwise it's empty, just reserving the traffic-light clearance
+           for the controls row below. -->
+      <div class="title-strip" data-tauri-drag-region>
+        {#if $selected}
+          <div class="search-wrap name-wrap">
+            <User class="search-icon" size={15} aria-hidden="true" />
+            <span class="name-box" title={$selected.name} data-tauri-drag-region
+              >{$selected.name}</span
+            >
+            <div class="social-icons">
+              <button
+                class="social-btn pencil-btn"
+                class:active={editingInfo}
+                type="button"
+                aria-label="Edit photographer info"
+                onclick={startEditInfo}
+              ><Pencil size={12} aria-hidden="true" /></button>
+              {#if $selected.instagram}
+                <button
+                  class="social-btn"
+                  title="Instagram: @{$selected.instagram}"
+                  aria-label="Open Instagram profile for {$selected.name}"
+                  onclick={() => void openUrl(`https://instagram.com/${$selected!.instagram}`)}
+                ><AtSign size={13} aria-hidden="true" /></button>
+              {/if}
+              {#if $selected.website}
+                <button
+                  class="social-btn"
+                  title={$selected.website}
+                  aria-label="Open website for {$selected.name}"
+                  onclick={() => void openUrl($selected!.website!)}
+                ><Globe size={13} aria-hidden="true" /></button>
+              {/if}
+            </div>
+            {#if editingInfo}
+              <!-- svelte-ignore a11y_autofocus -->
+              <form class="info-popover" onsubmit={(e) => { e.preventDefault(); saveInfo(); }}>
+                <textarea
+                  class="info-field"
+                  rows={3}
+                  placeholder="Bio…"
+                  autofocus
+                  bind:value={draftBlurb}
+                ></textarea>
+                <div class="info-row">
+                  <span class="info-prefix">@</span>
+                  <input class="info-field" type="text" placeholder="instagram" bind:value={draftInstagram} />
+                </div>
+                <input class="info-field" type="url" placeholder="https://…" bind:value={draftWebsite} />
+                <button class="info-save" type="submit">Save</button>
+              </form>
+            {/if}
+          </div>
+        {/if}
+      </div>
+
      <div class="bar-row" data-tauri-drag-region>
       <!-- Back ascends one level (image → grid → root); Home jumps straight to
            root. Leftmost at every level, both disabled at the root. -->
@@ -198,57 +255,42 @@
         </button>
       </div>
 
-      {#if $selected}
-        <div class="search-wrap">
-          <User class="search-icon" size={15} aria-hidden="true" />
-          <span class="name-box" title={$selected.name} data-tauri-drag-region
-            >{$selected.name}</span
-          >
-          <div class="social-icons">
+      <!-- Filter tabs sit right of the Home button, published by the active
+           view. Hidden while an image is open (the Viewer takes the space). -->
+      {#if $tabs.length > 0 && $openIndex === null}
+        <nav class="tabs" aria-label="Categories">
+          {#each $tabs as t (t.key)}
             <button
-              class="social-btn pencil-btn"
-              class:active={editingInfo}
+              class="tab"
+              class:active={$activeTab === t.key}
               type="button"
-              aria-label="Edit photographer info"
-              onclick={startEditInfo}
-            ><Pencil size={12} aria-hidden="true" /></button>
-            {#if $selected.instagram}
-              <button
-                class="social-btn"
-                title="Instagram: @{$selected.instagram}"
-                aria-label="Open Instagram profile for {$selected.name}"
-                onclick={() => void openUrl(`https://instagram.com/${$selected!.instagram}`)}
-              ><AtSign size={13} aria-hidden="true" /></button>
-            {/if}
-            {#if $selected.website}
-              <button
-                class="social-btn"
-                title={$selected.website}
-                aria-label="Open website for {$selected.name}"
-                onclick={() => void openUrl($selected!.website!)}
-              ><Globe size={13} aria-hidden="true" /></button>
-            {/if}
-          </div>
-          {#if editingInfo}
-            <!-- svelte-ignore a11y_autofocus -->
-            <form class="info-popover" onsubmit={(e) => { e.preventDefault(); saveInfo(); }}>
-              <textarea
-                class="info-field"
-                rows={3}
-                placeholder="Bio…"
-                autofocus
-                bind:value={draftBlurb}
-              ></textarea>
-              <div class="info-row">
-                <span class="info-prefix">@</span>
-                <input class="info-field" type="text" placeholder="instagram" bind:value={draftInstagram} />
-              </div>
-              <input class="info-field" type="url" placeholder="https://…" bind:value={draftWebsite} />
-              <button class="info-save" type="submit">Save</button>
-            </form>
-          {/if}
+              aria-pressed={$activeTab === t.key}
+              onclick={() => selectTab(t.key)}
+            >
+              {t.label}<span class="count">{t.count}</span>
+            </button>
+          {/each}
+        </nav>
+      {/if}
+
+      {#if !$selected && $rootView === "photographers"}
+        <div class="search-wrap">
+          <Search class="search-icon" size={15} aria-hidden="true" />
+          <input
+            class="search"
+            type="search"
+            placeholder="Search photographers…"
+            aria-label="Search photographers"
+            title={$root}
+            bind:value={$search}
+          />
         </div>
-        <div class="group">
+      {:else}
+        <div class="spacer"></div>
+      {/if}
+
+      <div class="group">
+        {#if $selected}
           <button
             class="icon-btn"
             title="Reveal this photographer's folder in Finder"
@@ -260,24 +302,7 @@
           {#if $openIndex === null}
             <TileSizeSlider view="photographer" />
           {/if}
-        </div>
-      {:else}
-        {#if $rootView === "photographers"}
-          <div class="search-wrap">
-            <Search class="search-icon" size={15} aria-hidden="true" />
-            <input
-              class="search"
-              type="search"
-              placeholder="Search photographers…"
-              aria-label="Search photographers"
-              title={$root}
-              bind:value={$search}
-            />
-          </div>
         {:else}
-          <div class="search-wrap"></div>
-        {/if}
-        <div class="group">
           <div class="seg" role="group" aria-label="Root view">
             <button
               class:active={$rootView === "photographers"}
@@ -301,28 +326,9 @@
             <Folder size={15} aria-hidden="true" />
           </button>
           <TileSizeSlider view={$rootView === "images" ? "photographer" : "root"} />
-        </div>
-      {/if}
+        {/if}
+      </div>
      </div>
-
-      <!-- Filter tabs, published by the active view, rendered here so the
-           controls + tabs are one frosted surface. Hidden while an image is open
-           (the Viewer takes the space). -->
-      {#if $tabs.length > 0 && $openIndex === null}
-        <nav class="tabs" aria-label="Categories">
-          {#each $tabs as t (t.key)}
-            <button
-              class="tab"
-              class:active={$activeTab === t.key}
-              type="button"
-              aria-pressed={$activeTab === t.key}
-              onclick={() => selectTab(t.key)}
-            >
-              {t.label}<span class="count">{t.count}</span>
-            </button>
-          {/each}
-        </nav>
-      {/if}
     </header>
     {#if $selected}
       <PhotographerView root={$root!} photographer={$selected} />
@@ -369,11 +375,10 @@
     /* Controls row + optional tabs row stacked into one frosted surface. */
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
-    /* Reaches the window's top edge; the extra top padding keeps the controls
-       clear of the OS traffic lights overlaid there (matches the old 36px
-       titlebar strip's clearance). */
-    padding: 45px 1rem 0.5rem;
+    gap: 0.4rem;
+    /* Reaches the window's top edge; the title strip below reserves the
+       traffic-light clearance so the controls row clears them. */
+    padding: 0.4rem 1rem 0.5rem;
     /* Floats over the content so the grid scrolls beneath it (out of sight,
        behind this opaque bar). */
     position: absolute;
@@ -392,17 +397,34 @@
   }
 
   /* The controls cluster: nav buttons + search/name + actions, one even row. */
+  /* Top strip beside the OS traffic lights; padding-left clears their cluster.
+     min-height reserves the clearance so the controls row below sits under
+     them even when the strip is empty. */
+  .title-strip {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-left: 72px;
+    min-height: 30px;
+  }
+
   .bar-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: 0.5rem;
   }
 
-  /* Filter tabs, second row of the bar (no own background/blur — the bar's). */
+  /* Eats the slack between the left cluster (nav + tabs) and the right group
+     when there's no search field to fill it. */
+  .spacer {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Filter tabs, inline right of the Home button (no own background — the bar's). */
   .tabs {
+    flex: none;
     display: flex;
-    flex-wrap: wrap;
     gap: 0.4rem;
   }
 
@@ -619,6 +641,13 @@
     flex: 1;
     min-width: 0;
     display: flex;
+  }
+
+  /* The photographer name in the title strip: sized to a compact box beside the
+     traffic lights, not stretched across the bar like the root search field. */
+  .name-wrap {
+    flex: none;
+    width: min(22rem, 45vw);
   }
 
   .search-wrap :global(.search-icon) {

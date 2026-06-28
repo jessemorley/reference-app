@@ -295,10 +295,10 @@
   .grid {
     list-style: none;
     margin: 0;
-    padding: 1rem;
+    padding: 0;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(var(--tile-min, 160px), 1fr));
-    gap: 0.6rem;
+    gap: 0;
   }
 
   .cell {
