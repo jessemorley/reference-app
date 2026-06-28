@@ -5,6 +5,8 @@
   // the per-photographer image grid. Fills its container; the parent owns the
   // aspect-ratio box.
   import { ensureThumb } from "../ipc";
+  import { fade } from "svelte/transition";
+  import { dur } from "../motion";
 
   let { path, alt = "" }: { path: string | null; alt?: string } = $props();
 
@@ -32,7 +34,7 @@
 </script>
 
 {#if src}
-  <img {src} {alt} loading="lazy" />
+  <img {src} {alt} loading="lazy" in:fade={{ duration: dur(150) }} />
 {:else}
   <div class="placeholder" aria-hidden="true"></div>
 {/if}

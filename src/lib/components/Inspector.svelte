@@ -15,6 +15,9 @@
   import Histogram from "./Histogram.svelte";
   import PaletteBar from "./PaletteBar.svelte";
   import Vectorscope from "./Vectorscope.svelte";
+  import { fly } from "svelte/transition";
+  import { cubicOut } from "svelte/easing";
+  import { dur } from "../motion";
 
   let { image }: { image: RefImage } = $props();
 
@@ -105,7 +108,11 @@
   }
 </script>
 
-<aside class="inspector" aria-label="Inspector">
+<aside
+  class="inspector"
+  aria-label="Inspector"
+  transition:fly={{ x: 24, duration: dur(200), easing: cubicOut }}
+>
   <section class="region">
     <h2 class="label">Value</h2>
     <div class="readout">

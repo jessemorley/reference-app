@@ -61,6 +61,9 @@
   import SlidersHorizontal from "@lucide/svelte/icons/sliders-horizontal";
   import User from "@lucide/svelte/icons/user";
   import ArrowLeft from "@lucide/svelte/icons/arrow-left";
+  import { scale } from "svelte/transition";
+  import { cubicOut } from "svelte/easing";
+  import { dur, pillSend, pillReceive } from "./lib/motion";
   import RootPicker from "./lib/components/RootPicker.svelte";
   import PhotographerGrid from "./lib/components/PhotographerGrid.svelte";
   import PhotographerView from "./lib/components/PhotographerView.svelte";
@@ -215,6 +218,13 @@
                 aria-pressed={$activeTab === t.key}
                 onclick={() => selectTab(t.key)}
               >
+                {#if $activeTab === t.key}
+                  <span
+                    class="pill"
+                    in:pillReceive={{ key: "tab" }}
+                    out:pillSend={{ key: "tab" }}
+                  ></span>
+                {/if}
                 {t.label}<span class="count">{t.count}</span>
               </button>
             {/each}
@@ -282,7 +292,11 @@
           </div>
           {#if editingInfo}
             <!-- svelte-ignore a11y_autofocus -->
-            <form class="info-popover" onsubmit={(e) => { e.preventDefault(); saveInfo(); }}>
+            <form
+              class="info-popover"
+              transition:scale={{ duration: dur(120), start: 0.96, opacity: 0, easing: cubicOut }}
+              onsubmit={(e) => { e.preventDefault(); saveInfo(); }}
+            >
               <textarea
                 class="info-field"
                 rows={3}
@@ -336,7 +350,11 @@
               title="Photographers"
               aria-label="Photographers"
               onclick={() => rootView.set("photographers")}
-            ><SquareUser size={15} aria-hidden="true" /></button>
+            >
+              {#if $rootView === "photographers"}
+                <span class="seg-pill" in:pillReceive={{ key: "seg" }} out:pillSend={{ key: "seg" }}></span>
+              {/if}
+              <SquareUser size={15} aria-hidden="true" /></button>
             <button
               class:active={$rootView === "images"}
               type="button"
@@ -344,7 +362,11 @@
               title="All images"
               aria-label="All images"
               onclick={() => rootView.set("images")}
-            ><Image size={15} aria-hidden="true" /></button>
+            >
+              {#if $rootView === "images"}
+                <span class="seg-pill" in:pillReceive={{ key: "seg" }} out:pillSend={{ key: "seg" }}></span>
+              {/if}
+              <Image size={15} aria-hidden="true" /></button>
           </div>
           <button
             class="icon-btn"
@@ -367,7 +389,12 @@
             <SlidersHorizontal size={15} aria-hidden="true" />
           </button>
           {#if settingsOpen}
-            <div class="settings-popover" role="dialog" aria-label="View settings">
+            <div
+              class="settings-popover"
+              role="dialog"
+              aria-label="View settings"
+              transition:scale={{ duration: dur(120), start: 0.96, opacity: 0, easing: cubicOut }}
+            >
               {#if $openIndex === null}
                 <div class="setting-row">
                   <span class="setting-label">Image size</span>
@@ -509,6 +536,7 @@
   }
 
   .tab {
+    position: relative;
     display: inline-flex;
     align-items: baseline;
     gap: 0.4rem;
@@ -518,17 +546,29 @@
     background: transparent;
     color: var(--fg-dim);
     cursor: pointer;
-    transition: background 0.12s ease, color 0.12s ease;
+    transition: color 0.12s ease;
   }
 
-  .tab:hover {
+  /* Hover tint only on inactive tabs — the active tab wears the sliding pill,
+     which would otherwise be masked by the hover background. */
+  .tab:not(.active):hover {
     background: rgba(255, 255, 255, 0.08);
     color: var(--fg);
   }
 
   .tab.active {
-    background: rgba(255, 255, 255, 0.14);
     color: var(--fg);
+  }
+
+  /* The sliding active-pill background. Sits behind the label (z-index: -1, the
+     button itself is transparent) and glides between tabs via the shared
+     crossfade keyed "tab". */
+  .pill {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.14);
   }
 
   .count {
@@ -653,6 +693,7 @@
     left: 0;
     right: 0;
     z-index: 100;
+    transform-origin: top center;
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
@@ -797,6 +838,7 @@
   }
 
   .seg button {
+    position: relative;
     border: none !important;
     border-radius: 0 !important;
     background: transparent;
@@ -807,14 +849,22 @@
     align-items: center;
   }
 
-  .seg button:hover {
+  .seg button:not(.active):hover {
     background: rgba(255, 255, 255, 0.06);
     color: var(--fg);
   }
 
   .seg button.active {
-    background: rgba(255, 255, 255, 0.14);
     color: var(--fg);
+  }
+
+  /* Sliding fill for the active segment — square (no radius) so it reads as one
+     half of the shared shell. Crossfade keyed "seg" glides it between the two. */
+  .seg-pill {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: rgba(255, 255, 255, 0.14);
   }
 
   .settings-wrap {
@@ -827,6 +877,7 @@
     top: calc(100% + 6px);
     right: 0;
     z-index: 100;
+    transform-origin: top right;
     min-width: 240px;
     display: flex;
     flex-direction: column;

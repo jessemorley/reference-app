@@ -20,6 +20,9 @@
   import { settings } from "../stores/settings";
   import Thumb from "./Thumb.svelte";
   import Viewer from "./Viewer.svelte";
+  import { scale } from "svelte/transition";
+  import { cubicOut } from "svelte/easing";
+  import { gridIn, dur } from "../motion";
 
   let { root }: { root: string } = $props();
 
@@ -128,7 +131,7 @@
     <div class="scroller" class:occluded={$openIndex !== null}>
       <ul class="grid" style="--tile-min: {$settings.photographer}px">
         {#each shown as img, i (img.path)}
-          <li class="cell">
+          <li class="cell" in:gridIn={{ index: i }}>
             <button
               class="open"
               type="button"
@@ -165,7 +168,12 @@
         menu = null;
       }}
     ></button>
-    <ul class="menu" role="menu" style="left: {menu.x}px; top: {menu.y}px">
+    <ul
+      class="menu"
+      role="menu"
+      style="left: {menu.x}px; top: {menu.y}px"
+      transition:scale={{ duration: dur(120), start: 0.95, opacity: 0, easing: cubicOut }}
+    >
       <li role="none">
         <button
           class="item"
@@ -273,6 +281,7 @@
   .menu {
     position: absolute;
     z-index: 21;
+    transform-origin: top left;
     min-width: 11rem;
     margin: 0;
     padding: 0.3rem;

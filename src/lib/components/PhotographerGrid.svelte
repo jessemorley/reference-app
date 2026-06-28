@@ -5,6 +5,7 @@
   import { settings } from "../stores/settings";
   import { search, refreshSignal } from "../stores/navigation";
   import Thumb from "./Thumb.svelte";
+  import { gridIn } from "../motion";
 
   let {
     root,
@@ -71,8 +72,8 @@
     <p class="state">No photographers match “{$search}”.</p>
   {:else}
     <ul class="grid" style="--tile-min: {$settings.root}px">
-      {#each shown as p (p.relPath)}
-        <li>
+      {#each shown as p, i (p.relPath)}
+        <li in:gridIn={{ index: i }}>
           <button
             class="tile"
             type="button"
