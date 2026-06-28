@@ -374,38 +374,40 @@
                   <TileSizeSlider view={activeView} />
                 </div>
               {/if}
-              <div class="setting-row">
-                <span class="setting-label">Spacing</span>
-                <div class="setting-slider">
-                  <input
-                    type="range"
-                    min={GRID_GAP_MIN}
-                    max={GRID_GAP_MAX}
-                    step={GRID_GAP_STEP}
-                    value={$gridGap}
-                    aria-label="Image spacing"
-                    oninput={(e) => gridGap.set(+(e.currentTarget as HTMLInputElement).value)}
-                    onchange={(e) => setGridGap(+(e.currentTarget as HTMLInputElement).value)}
-                  />
-                  <span class="setting-value">{$gridGap}px</span>
+              {#if activeView !== "root"}
+                <div class="setting-row">
+                  <span class="setting-label">Spacing</span>
+                  <div class="setting-slider">
+                    <input
+                      type="range"
+                      min={GRID_GAP_MIN}
+                      max={GRID_GAP_MAX}
+                      step={GRID_GAP_STEP}
+                      value={$gridGap}
+                      aria-label="Image spacing"
+                      oninput={(e) => gridGap.set(+(e.currentTarget as HTMLInputElement).value)}
+                      onchange={(e) => setGridGap(+(e.currentTarget as HTMLInputElement).value)}
+                    />
+                    <span class="setting-value">{$gridGap}px</span>
+                  </div>
                 </div>
-              </div>
-              <div class="setting-row">
-                <span class="setting-label">Padding</span>
-                <div class="setting-slider">
-                  <input
-                    type="range"
-                    min={GRID_PADDING_MIN}
-                    max={GRID_PADDING_MAX}
-                    step={GRID_PADDING_STEP}
-                    value={$gridPadding}
-                    aria-label="Grid padding"
-                    oninput={(e) => gridPadding.set(+(e.currentTarget as HTMLInputElement).value)}
-                    onchange={(e) => setGridPadding(+(e.currentTarget as HTMLInputElement).value)}
-                  />
-                  <span class="setting-value">{$gridPadding}px</span>
+                <div class="setting-row">
+                  <span class="setting-label">Padding</span>
+                  <div class="setting-slider">
+                    <input
+                      type="range"
+                      min={GRID_PADDING_MIN}
+                      max={GRID_PADDING_MAX}
+                      step={GRID_PADDING_STEP}
+                      value={$gridPadding}
+                      aria-label="Grid padding"
+                      oninput={(e) => gridPadding.set(+(e.currentTarget as HTMLInputElement).value)}
+                      onchange={(e) => setGridPadding(+(e.currentTarget as HTMLInputElement).value)}
+                    />
+                    <span class="setting-value">{$gridPadding}px</span>
+                  </div>
                 </div>
-              </div>
+              {/if}
             </div>
           {/if}
         </div>
