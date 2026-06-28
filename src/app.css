@@ -7,6 +7,8 @@
   --fg-dim: rgba(255, 255, 255, 0.55);
   --accent: #4c8dff;
   --panel: rgba(28, 28, 32, 0.55);
+  /* The floating header bar's background (controls + tab rows, one element). */
+  --chrome-bg: #1e1e1e;
   --border: rgba(255, 255, 255, 0.1);
 }
 
@@ -32,14 +34,15 @@ textarea {
   user-select: text;
 }
 
-/* Fixed-height app shell: titlebar row sized to content, everything below it
-   gets the remaining space as one scroll-bounding track. A definite 100vh +
-   grid rows (rather than a percentage-height flex chain) is what guarantees the
-   content region has a real height to scroll within. */
+/* Fixed-height app shell. A definite 100vh column (rather than a percentage
+   chain) is what guarantees the content region has a real height to scroll
+   within. The loaded shell fills the whole window so the grid scrolls right up
+   under the floating bar; the standalone titlebar strip only stands in on the
+   first-run / loading screens that have no bar of their own. */
 #app {
   height: 100vh;
-  display: grid;
-  grid-template-rows: auto 1fr;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 

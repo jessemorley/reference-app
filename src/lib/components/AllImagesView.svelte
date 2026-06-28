@@ -1,21 +1,20 @@
 <script lang="ts">
-  // One Photographer's images as a flattened grid with Category filter tabs.
-  // Loads via list_images on mount and whenever the selected photographer
-  // changes. Tabs are synthesised from the real Categories: "All" first, then
-  // Categories (backend-sorted), then "Uncategorised" — the last only when
-  // loose images and ≥1 real Category coexist. When everything is loose there's
-  // no tab bar at all. Clicking an image is wired in Slice 5 (the viewer).
+  // The all-images root grid: every image across all Photographers, flattened,
+  // with Category tabs merged by name. Structurally the per-Photographer view
+  // (PhotographerView) minus cover pins, plus a photographer-name overlay on each
+  // tile that clicks through to that Photographer. Loads via list_all_images on
+  // mount and on Root change; reuses Thumb + Viewer.
   import { untrack } from "svelte";
-  import { listImages, setCover, revealInFinder } from "../ipc";
-  import type { Category, Photographer, RefImage } from "../types";
+  import { listAllImages, revealInFinder } from "../ipc";
+  import type { Category, RefImage } from "../types";
   import {
     activeTab,
     ALL_TAB,
     UNCATEGORISED_TAB,
     refreshSignal,
-    selected,
     openIndex,
     tabs,
+    search,
     type Tab,
   } from "../stores/navigation";
   import { settings } from "../stores/settings";
@@ -25,43 +24,26 @@
   import { cubicOut } from "svelte/easing";
   import { gridIn, dur } from "../motion";
 
-  let { root, photographer }: { root: string; photographer: Photographer } =
-    $props();
+  let { root }: { root: string } = $props();
 
   let categories = $state<Category[]>([]);
   let images = $state<RefImage[] | null>(null);
   let error = $state<string | null>(null);
 
-  // Which image is open in the Viewer lives in the navigation store
-  // (`openIndex`) so the header's back button can close it — opening an image is
-  // the third (deepest) level below the photographer view.
-
-  // The effective cover image and whether it's a user pin — seeded from the
-  // photographer prop, updated locally on a set/reset so the tile menu reflects
-  // the change before the next root-grid rescan (Slice 10). After a reset we
-  // can't recompute the alphabetical default here, so coverPath goes null —
-  // tiles then all read "Set as cover" until the grid is re-scanned (acceptable;
-  // there's no cover badge, the state lives only in the menu).
-  let coverPath = $state<string | null>(null);
-  let pinned = $state(false);
-
-  // (Re)load on Root/photographer change. Reset the active tab to "All" so we
-  // never land on a Category the new photographer lacks. The cancel flag drops
-  // a slow load whose target has since been replaced.
+  // (Re)load on Root change. Reset the active tab to "All" so we never land on a
+  // Category the new Root lacks. The cancel flag drops a slow load whose Root has
+  // since been replaced.
   $effect(() => {
     const r = root;
-    const relPath = photographer.relPath;
     let cancelled = false;
     images = null;
     error = null;
     categories = [];
     activeTab.set(ALL_TAB);
-    openIndex.set(null); // close any open Viewer when the photographer changes
+    openIndex.set(null);
     menu = null;
-    coverPath = photographer.coverPath;
-    pinned = photographer.pinned;
 
-    listImages(r, relPath)
+    listAllImages(r)
       .then((res) => {
         if (cancelled) return;
         categories = res.categories;
@@ -99,47 +81,36 @@
 
   let shown = $derived.by<RefImage[]>(() => {
     const all = images ?? [];
-    switch ($activeTab) {
-      case ALL_TAB:
-        return all;
-      case UNCATEGORISED_TAB:
-        return all.filter((i) => i.category === null);
-      default:
-        return all.filter((i) => i.category === $activeTab);
-    }
+    const byTab =
+      $activeTab === ALL_TAB
+        ? all
+        : $activeTab === UNCATEGORISED_TAB
+          ? all.filter((i) => i.category === null)
+          : all.filter((i) => i.category === $activeTab);
+    const q = $search.trim().toLowerCase();
+    return q ? byTab.filter((i) => i.name.toLowerCase().includes(q)) : byTab;
   });
 
-  // Silent re-scan on ⌘R / focus return (Slice 10): swap the images in place
-  // without nulling them (no "Loading…" flash, scroll preserved). untrack keeps
-  // root/photographer out of the deps — only the bumped signal retriggers it.
-  // An empty result means the folder was emptied/removed (the root grid hides
-  // image-less folders), so fall back to the grid.
+  // Silent re-scan on ⌘R / focus return: swap images in place without nulling
+  // them (no "Loading…" flash, scroll preserved). untrack keeps root out of the
+  // deps — only the bumped signal retriggers it.
   $effect(() => {
     if ($refreshSignal === 0) return;
     untrack(() => {
-      listImages(root, photographer.relPath)
+      listAllImages(root)
         .then((res) => {
-          if (res.images.length === 0) {
-            openIndex.set(null);
-            selected.set(null);
-            return;
-          }
           categories = res.categories;
           images = res.images;
-          if (pinned && !res.images.some((img) => img.path === coverPath)) {
-            coverPath = null;
-            pinned = false;
-          }
         })
         .catch(() => {});
     });
   });
 
-  // Right-click an image tile → cover + reveal menu, positioned within the view.
+  // Right-click an image tile → reveal-in-Finder menu, positioned within the view.
   let viewEl!: HTMLDivElement;
   let menu = $state<{ x: number; y: number; img: RefImage } | null>(null);
   const MENU_W = 200;
-  const MENU_H = 96;
+  const MENU_H = 48;
   function openMenu(e: MouseEvent, img: RefImage) {
     e.preventDefault();
     const box = viewEl.getBoundingClientRect();
@@ -147,38 +118,15 @@
     const y = Math.min(e.clientY - box.top, Math.max(0, box.height - MENU_H));
     menu = { x, y, img };
   }
-  // The cover menu item's three states (IMPLEMENTATION §10): the pinned tile can
-  // reset, an un-pinned default cover is shown disabled, everything else can pin.
-  function coverItem(img: RefImage) {
-    if (img.path === coverPath && pinned) {
-      return { label: "Reset to default cover", disabled: false, reset: true };
-    }
-    if (img.path === coverPath) {
-      return { label: "Current cover", disabled: true, reset: false };
-    }
-    return { label: "Set as cover", disabled: false, reset: false };
-  }
-  function chooseCover(img: RefImage, reset: boolean) {
-    if (reset) {
-      void setCover(photographer.relPath, null);
-      coverPath = null;
-      pinned = false;
-    } else {
-      void setCover(photographer.relPath, img.path);
-      coverPath = img.path;
-      pinned = true;
-    }
-    menu = null;
-  }
 </script>
 
 <div class="view" bind:this={viewEl}>
   {#if error}
-    <p class="state">Couldn't read this photographer: {error}</p>
+    <p class="state">Couldn't read this folder: {error}</p>
   {:else if images === null}
     <p class="state">Loading…</p>
   {:else if images.length === 0}
-    <p class="state">No images in this photographer's folder.</p>
+    <p class="state">No images in this folder.</p>
   {:else}
     <div class="scroller" class:occluded={$openIndex !== null}>
       <ul class="grid" style="--tile-min: {$settings.photographer}px">
@@ -208,8 +156,7 @@
   {/if}
 
   {#if menu}
-    {@const cover = coverItem(menu.img)}
-    <!-- Click-away catcher closes the menu; sits under it (Viewer's pattern). -->
+    <!-- Click-away catcher closes the menu; sits under it. -->
     <button
       class="scrim"
       type="button"
@@ -232,17 +179,6 @@
           class="item"
           type="button"
           role="menuitem"
-          disabled={cover.disabled}
-          onclick={() => chooseCover(menu!.img, cover.reset)}
-        >
-          {cover.label}
-        </button>
-      </li>
-      <li role="none">
-        <button
-          class="item"
-          type="button"
-          role="menuitem"
           onclick={() => {
             void revealInFinder(menu!.img.path).catch(() => {});
             menu = null;
@@ -256,15 +192,13 @@
 </div>
 
 <style>
-  /* Fills the shell's 1fr row as a column: tabs sized to content, the grid
-     scroller takes the rest. min-height: 0 keeps the scroll inside this track. */
+  /* Mirrors PhotographerView's layout: tabs sized to content, grid scroller takes
+     the rest; positioning context for the Viewer overlay. */
   .view {
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    /* Positioning context for the Viewer overlay, which fills this content
-       region (below the app header) until expanded to the full window. */
     position: relative;
   }
 
@@ -275,18 +209,10 @@
     color: var(--fg-dim);
   }
 
-  /* While the Viewer overlay is open it fully covers the content region, so the
-     grid (and tabs) behind it are hidden. Without this, a thumbnail row could
-     bleed through the 1px sub-pixel seam at the header/content boundary. Kept in
-     layout (visibility, not display) so the scroll position is preserved when the
-     Viewer closes. */
   .occluded {
     visibility: hidden;
   }
 
-  /* Scroll the grid here (not the grid itself) so the grid sizes to its content
-     and its square cells resolve against a definite column width — same pattern
-     as the photographer grid. */
   .scroller {
     flex: 1;
     min-height: 0;
@@ -295,11 +221,6 @@
     margin-top: var(--bar-h, 0);
   }
 
-  /* minmax(--tile-min, 1fr) so full rows fill edge-to-edge (only the last,
-     partial row leaves space on the right). Trade-off: 1fr equalises every
-     column to width/N, so the slider resizes tiles in discrete steps as the
-     column count flips, not continuously — fill and continuous resize can't
-     coexist at a fixed width, and we chose fill. */
   .grid {
     list-style: none;
     margin: 0;
@@ -317,8 +238,6 @@
     background: rgba(255, 255, 255, 0.04);
   }
 
-  /* Resting dim that fades out on hover — cropped by the cell's overflow:hidden.
-     Hover-only delight; keyboard users get the focus-visible outline instead. */
   .cell::after {
     content: "";
     position: absolute;
@@ -333,8 +252,6 @@
     opacity: 0;
   }
 
-  /* The whole tile is the open affordance; reset button chrome to a bare,
-     keyboard-reachable frame (same precedent as PhotographerGrid tiles). */
   .open {
     display: block;
     width: 100%;
@@ -350,8 +267,7 @@
     outline-offset: -2px;
   }
 
-  /* Tile right-click menu — same dark-glass treatment as the Viewer's backdrop
-     menu. Transparent full-cover scrim dismisses it on any click. */
+  /* Tile right-click menu — same dark-glass treatment as PhotographerView. */
   .scrim {
     position: absolute;
     inset: 0;
@@ -391,12 +307,7 @@
     cursor: pointer;
   }
 
-  .item:hover:not(:disabled) {
+  .item:hover {
     background: rgba(255, 255, 255, 0.1);
-  }
-
-  .item:disabled {
-    color: var(--fg-dim);
-    cursor: default;
   }
 </style>

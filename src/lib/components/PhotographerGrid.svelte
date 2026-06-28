@@ -5,6 +5,7 @@
   import { settings } from "../stores/settings";
   import { search, refreshSignal } from "../stores/navigation";
   import Thumb from "./Thumb.svelte";
+  import { gridIn } from "../motion";
 
   let {
     root,
@@ -71,8 +72,8 @@
     <p class="state">No photographers match “{$search}”.</p>
   {:else}
     <ul class="grid" style="--tile-min: {$settings.root}px">
-      {#each shown as p (p.relPath)}
-        <li>
+      {#each shown as p, i (p.relPath)}
+        <li in:gridIn|global={{ index: i }}>
           <button
             class="tile"
             type="button"
@@ -108,6 +109,8 @@
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    /* First row clears the floating menu bar; the grid scrolls under it. */
+    margin-top: var(--bar-h, 0);
   }
 
   /* minmax(--tile-min, 1fr) so full rows fill edge-to-edge (only the last,
@@ -118,7 +121,7 @@
   .grid {
     list-style: none;
     margin: 0;
-    padding: 1rem;
+    padding: var(--grid-padding, 8px);
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(var(--tile-min, 200px), 1fr));
     gap: 1rem;

@@ -31,6 +31,13 @@ export function back() {
 export const ALL_TAB = "All";
 export const UNCATEGORISED_TAB = "Uncategorised";
 
+/** Which root grid is showing: the Photographer grid (default) or the flat
+ *  all-images grid with merged Category tabs. A header toggle flips it; only
+ *  meaningful while no Photographer is open (`selected === null`).
+ *  ponytail: in-memory, resets to "photographers" each launch — persist via
+ *  set_setting later if it should survive relaunch. */
+export const rootView = writable<"photographers" | "images">("photographers");
+
 /** The root-grid photographer search query. Filtered client-side over the
  *  already-loaded list (no IPC); cleared when the folder changes (Slice 10). */
 export const search = writable<string>("");
@@ -46,3 +53,17 @@ export const refreshSignal = writable<number>(0);
  *  needs to read the same selection. Reset to "All" when the photographer
  *  changes (PhotographerView owns that). */
 export const activeTab = writable<string>(ALL_TAB);
+
+/** A filter tab as the header renders it. */
+export type Tab = { key: string; label: string; count: number };
+
+/** Filter tabs for the active view, published by the tabbed view and rendered
+ *  inside the header bar so the bar + tabs are one frosted surface (no seam
+ *  between two separately-blurred elements). Empty = no tab row. */
+export const tabs = writable<Tab[]>([]);
+
+/** Pick a filter tab: switch the shown set and close any open image. */
+export function selectTab(key: string) {
+  activeTab.set(key);
+  openIndex.set(null);
+}

@@ -107,6 +107,16 @@ export function listImages(
   return invoke("list_images", { root, relPath });
 }
 
+/** Every image under `root`, flattened across all Photographers, with Categories
+ *  merged by name (same `{ categories, images }` shape as `listImages`). Each
+ *  image carries `photographer` / `photographerRelPath` for the tile overlay and
+ *  click-through. Backs the all-images root grid. */
+export function listAllImages(
+  root: string
+): Promise<{ categories: Category[]; images: RefImage[] }> {
+  return invoke("list_all_images", { root });
+}
+
 /** Ensure a cached thumbnail exists for the image at `path` (generating it on
  *  first request), returning its asset-protocol URL ready for an `<img>` src. */
 export async function ensureThumb(path: string): Promise<string> {
@@ -184,4 +194,24 @@ export function getPaletteK(): Promise<number | null> {
 /** Persist the palette colour-count. */
 export function setPaletteK(k: number): Promise<void> {
   return invoke("set_setting", { key: PALETTE_K_KEY, value: k });
+}
+
+const GRID_GAP_KEY = "prefs.gridGap";
+
+export function getGridGap(): Promise<number | null> {
+  return invoke<number | null>("get_setting", { key: GRID_GAP_KEY });
+}
+
+export function setGridGap(px: number): Promise<void> {
+  return invoke("set_setting", { key: GRID_GAP_KEY, value: px });
+}
+
+const GRID_PADDING_KEY = "prefs.gridPadding";
+
+export function getGridPadding(): Promise<number | null> {
+  return invoke<number | null>("get_setting", { key: GRID_PADDING_KEY });
+}
+
+export function setGridPadding(px: number): Promise<void> {
+  return invoke("set_setting", { key: GRID_PADDING_KEY, value: px });
 }

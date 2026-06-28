@@ -31,6 +31,9 @@
     toCanvasSample,
   } from "../analysis/eyedropper";
   import { reading } from "../stores/eyedropper";
+  import { scale } from "svelte/transition";
+  import { cubicOut } from "svelte/easing";
+  import { dur } from "../motion";
 
   let {
     images,
@@ -374,6 +377,7 @@
   tabindex="-1"
   aria-label={image ? `Viewing ${image.name}` : "Image viewer"}
   bind:this={viewerEl}
+  transition:scale={{ duration: dur(180), start: 0.97, opacity: 0, easing: cubicOut }}
 >
   <!-- The surround: the image column, filled with the persisted Backdrop. Bound
        to vw/vh so all fit/zoom/pan math tracks the *visible* image width — which
@@ -508,6 +512,7 @@
       role="menu"
       aria-label="Backdrop"
       style="left: {menu.x}px; top: {menu.y}px"
+      transition:scale={{ duration: dur(120), start: 0.95, opacity: 0, easing: cubicOut }}
     >
       {#each BACKDROPS as b (b.token)}
         <li role="none">
@@ -535,6 +540,8 @@
   .viewer {
     position: absolute;
     inset: 0;
+    /* Sit below the floating menu bar so its back button stays clickable. */
+    top: var(--bar-h, 0);
     display: flex;
     overflow: hidden;
     z-index: 10;
@@ -543,6 +550,9 @@
 
   .viewer.expanded {
     position: fixed;
+    /* Full-window: cover the menu bar (its own Back/Home surface while expanded). */
+    top: 0;
+    z-index: 30;
   }
 
   /* The image column. Flexes into whatever the Inspector leaves; positioned so
@@ -647,6 +657,7 @@
   .menu {
     position: absolute;
     z-index: 21;
+    transform-origin: top left;
     min-width: 9rem;
     margin: 0;
     padding: 0.3rem;
