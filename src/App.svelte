@@ -170,7 +170,7 @@
   <button class="info-scrim" tabindex="-1" aria-hidden="true" onclick={cancelEditInfo}></button>
 {/if}
 {#if settingsOpen}
-  <button class="info-scrim" tabindex="-1" aria-hidden="true" onclick={() => (settingsOpen = false)}></button>
+  <button class="settings-scrim" tabindex="-1" aria-hidden="true" onclick={() => (settingsOpen = false)}></button>
 {/if}
 
 <!-- The loaded shell's bar is its own full-width drag region (covers the top,
@@ -676,11 +676,24 @@
     font-weight: 600;
   }
 
-  /* Click-away scrim behind the popover. */
+  /* Click-away scrim behind the info popover (above bar). */
   .info-scrim {
     position: fixed;
     inset: 0;
     z-index: 99;
+    background: transparent;
+    border: none;
+    padding: 0;
+    cursor: default;
+  }
+
+  /* Click-away scrim for the settings popover — must sit BELOW the bar
+     (z-index: 20) so the bar's stacking context stays on top and the
+     popover controls remain interactive. */
+  .settings-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 19;
     background: transparent;
     border: none;
     padding: 0;
