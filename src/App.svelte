@@ -146,12 +146,14 @@
   <button class="info-scrim" tabindex="-1" aria-hidden="true" onclick={cancelEditInfo}></button>
 {/if}
 
-<!-- Stands in for the hidden-inset titlebar; drag anywhere along the top. -->
-<div class="titlebar" data-tauri-drag-region></div>
-
+<!-- The loaded shell's bar is its own full-width drag region (covers the top,
+     traffic lights and all); only the bar-less screens need this stand-in
+     titlebar strip so the window stays draggable there too. -->
 {#if !ready}
+  <div class="titlebar" data-tauri-drag-region></div>
   <div class="center"><span class="dim">Loading…</span></div>
 {:else if $root === null}
+  <div class="titlebar" data-tauri-drag-region></div>
   <RootPicker />
 {:else}
   <div class="shell" style="--bar-h: {barH}px">
@@ -319,15 +321,17 @@
     margin: 0;
   }
 
-  /* Loaded shell: a thin header above a scrolling grid. Sits in #app's 1fr
-     row; min-height: 0 lets it stay within that track so the grid scrolls
+  /* Loaded shell: a floating header over a scrolling grid. Fills #app's flex
+     column; min-height: 0 lets it stay within that track so the grid scrolls
      rather than the whole shell growing. */
   .shell {
+    flex: 1;
     display: flex;
     flex-direction: column;
     min-height: 0;
     /* Positioning context for the absolutely-placed bar that floats over the
-       scrolling content below. */
+       scrolling content below. Fills the whole window so the grid scrolls right
+       up under the bar, traffic-light strip included. */
     position: relative;
   }
 
@@ -339,7 +343,10 @@
        spaced cluster (matches .nav's inter-button gap); .group restores the
        wider spacing on its side. */
     gap: 0.5rem;
-    padding: 0.5rem 1rem;
+    /* Reaches the window's top edge; the extra top padding keeps the controls
+       clear of the OS traffic lights overlaid there (matches the old 36px
+       titlebar strip's clearance). */
+    padding: 45px 1rem 0.5rem;
     /* Floats over the content so the grid scrolls beneath it; translucent panel
        + blur so what scrolls under reads as frosted glass. */
     position: absolute;
@@ -347,7 +354,8 @@
     left: 0;
     right: 0;
     z-index: 20;
-    background: var(--panel);
+    /* Only slightly transparent — denser than the --panel tabs below it. */
+    background: rgba(28, 28, 32, 0.9);
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     /* Chrome, not content: the bar's labels (path, photographer name) shouldn't
