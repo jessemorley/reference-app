@@ -15,7 +15,6 @@
   import Histogram from "./Histogram.svelte";
   import PaletteBar from "./PaletteBar.svelte";
   import Vectorscope from "./Vectorscope.svelte";
-  import { inspectorReveal } from "../motion";
 
   let { image }: { image: RefImage } = $props();
 
@@ -106,8 +105,7 @@
   }
 </script>
 
-<aside class="inspector" aria-label="Inspector" transition:inspectorReveal>
-  <div class="panel">
+<aside class="inspector" aria-label="Inspector">
   <section class="region">
     <h2 class="label">Value</h2>
     <div class="readout">
@@ -161,7 +159,6 @@
     <h2 class="label">Vectorscope</h2>
     <Vectorscope {vectorscope} status={vectorscopeStatus} />
   </section> -->
-  </div>
 </aside>
 
 <style>
@@ -170,33 +167,16 @@
      the content region, not the bare window, so a transparent fill would let the
      grid bleed through; this reads like the dark chrome without that. Divided
      from the image by a hairline. Scrolls if the regions outgrow the height. */
-  /* Clipping shell: holds the column's resting width, but its *width* is what the
-     open/close transition animates (so the image surround beside it resizes in
-     step). overflow:hidden clips the fixed-width .panel inside; justify-content
-     pins that panel to the right edge, so it tucks into/out of the window edge
-     rather than revealing from the left. */
   .inspector {
     flex: none;
     width: 300px;
-    overflow: hidden;
-    display: flex;
-    justify-content: flex-end;
-  }
-
-  /* The panel proper: a fixed width so its content never reflows while the shell
-     animates — the transition only uncovers it. Carries the chrome the shell used
-     to: matches the top bar's colour (sampled from screenshots/bar-colours.png)
-     so it reads as the same chrome, divided by a hairline. */
-  .panel {
-    flex: none;
-    width: 300px;
-    height: 100%;
-    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     gap: 1rem;
     padding: 1rem;
     overflow-y: auto;
+    /* Matches the top bar's rendered colour (sampled from screenshots/
+       bar-colours.png) so the panel reads as the same chrome. */
     background: #1e1e1e;
     border-left: 1px solid rgba(255, 255, 255, 0.1);
   }

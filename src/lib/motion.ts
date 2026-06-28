@@ -26,20 +26,6 @@ export const gridIn = (
     easing: cubicOut,
   });
 
-/** Inspector reveal: animates the panel's *layout width* (not a transform) so
- *  the image canvas beside it — sized by the flex surround's width — resizes in
- *  step with the panel instead of snapping once the transform finishes. The
- *  panel content is held at a fixed width inside a clipping shell, so this just
- *  uncovers it. `width` must match the panel's resting width. */
-export const inspectorReveal = (
-  _node: Element,
-  { width = 300 }: { width?: number } = {}
-) => ({
-  duration: dur(200),
-  easing: cubicOut,
-  css: (t: number) => `width: ${t * width}px`,
-});
-
 /** Shared send/receive pair for the sliding active-pill indicators. One instance
  *  serves every pill group — the `key` namespaces them (`tab`, `seg`), and only
  *  one element per key is mounted at a time, so the highlight glides from the old
